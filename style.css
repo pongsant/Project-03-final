@@ -26,7 +26,7 @@ canvas {
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
-  pointer-events: none; /* so clicks go to the canvas */
+  pointer-events: none;
   z-index: 10;
 }
 

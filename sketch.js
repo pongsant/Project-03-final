@@ -71,7 +71,7 @@ let audioStarted = false;
 function preload() {
   soundFormats("mp3");
 
-  // Load all mood sounds
+  // Load all mood sounds from same folder
   for (const key in moods) {
     const m = moods[key];
     moodSounds[key] = loadSound(m.file);
