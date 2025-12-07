@@ -1,4 +1,5 @@
 // 3D DREAM ORB – 7 MOODS, 7 SONGS, MUSIC REACTIVE
+// NO preload() → avoids "loading" screen
 
 let scenes;
 let currentSceneIndex = 0;
@@ -12,27 +13,13 @@ let currentSize, currentWobble;
 let currentBg, bgTarget;
 
 // sound
-let tracks = [];
+let tracks = [];     // will hold 7 p5.SoundFile objects or null
 let amplitude;
 let currentTrack = null;
 
 // particles
 let particles = [];
 
-// ---------------- PRELOAD ----------------
-function preload() {
-  // 7 separate songs, one per mood
-  // Make sure these files EXIST in /audio and names match exactly
-  tracks[0] = loadSound("audio/calm.mp3");       // Calm
-  tracks[1] = loadSound("audio/happy.mp3");      // Happy
-  tracks[2] = loadSound("audio/love.mp3");       // Love
-  tracks[3] = loadSound("audio/dream.mp3");      // Dream
-  tracks[4] = loadSound("audio/hope.mp3");       // Hope
-  tracks[5] = loadSound("audio/nostalgia.mp3");  // Nostalgia
-  tracks[6] = loadSound("audio/alone.mp3");      // Alone
-}
-
-// ---------------- SETUP ----------------
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
 
@@ -41,18 +28,18 @@ function setup() {
   // prevent right-click menu so we can use RIGHT mouse button
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  // define 7 moods / scenes with calm Pantone-like colors
+  // define 7 moods / scenes with calm Pantone-like colors + audio filenames
   scenes = [
     {
       name: "Calm",
       tagline: "soft blue, quiet breathing",
-      orbColor: "#C8E3FF",   // light sky blue
+      orbColor: "#C8E3FF",
       lightColor: "#8FB8FF",
       bgColor: "#AFC9F2",
       sizeTarget: 1.0,
       wobbleTarget: 0.025,
       movementType: "float",
-      audioIndex: 0
+      audioFile: "calm.mp3"
     },
     {
       name: "Happy",
@@ -63,7 +50,7 @@ function setup() {
       sizeTarget: 1.15,
       wobbleTarget: 0.035,
       movementType: "wave",
-      audioIndex: 1
+      audioFile: "happy.mp3"
     },
     {
       name: "Love",
@@ -74,7 +61,7 @@ function setup() {
       sizeTarget: 1.1,
       wobbleTarget: 0.03,
       movementType: "float",
-      audioIndex: 2
+      audioFile: "love.mp3"
     },
     {
       name: "Dream",
@@ -85,7 +72,7 @@ function setup() {
       sizeTarget: 0.95,
       wobbleTarget: 0.04,
       movementType: "pulse",
-      audioIndex: 3
+      audioFile: "dream.mp3"
     },
     {
       name: "Hope",
@@ -96,7 +83,7 @@ function setup() {
       sizeTarget: 1.05,
       wobbleTarget: 0.03,
       movementType: "wave",
-      audioIndex: 4
+      audioFile: "hope.mp3"
     },
     {
       name: "Nostalgia",
@@ -107,7 +94,7 @@ function setup() {
       sizeTarget: 0.9,
       wobbleTarget: 0.025,
       movementType: "float",
-      audioIndex: 5
+      audioFile: "nostalgia.mp3"
     },
     {
       name: "Alone",
@@ -118,11 +105,11 @@ function setup() {
       sizeTarget: 0.85,
       wobbleTarget: 0.05,
       movementType: "pulse",
-      audioIndex: 6
+      audioFile: "alone.mp3"
     }
   ];
 
-  // starting values based on first scene
+  // start values from first scene
   const s = scenes[currentSceneIndex];
   currentSize = s.sizeTarget;
   currentWobble = s.wobbleTarget;
@@ -131,9 +118,25 @@ function setup() {
   wobbleTarget = s.wobbleTarget;
   bgTarget = color(s.bgColor);
 
-  // amplitude analyzer for music
+  // amplitude analyzer
   amplitude = new p5.Amplitude();
   amplitude.smooth(0.8);
+
+  // load audio for each mood (no preload, so sketch will still run even if some fail)
+  for (let i = 0; i < scenes.length; i++) {
+    const filePath = "audio/" + scenes[i].audioFile;
+    loadSound(
+      filePath,
+      (snd) => {
+        tracks[i] = snd;
+        console.log("Loaded:", filePath);
+      },
+      (err) => {
+        console.warn("Failed to load:", filePath);
+        tracks[i] = null;
+      }
+    );
+  }
 
   initParticles();
 
@@ -187,7 +190,7 @@ function drawParticles(scene, levelBoost) {
 function draw() {
   const scene = scenes[currentSceneIndex];
 
-  // audio level (react to music)
+  // audio level
   let level = amplitude ? amplitude.getLevel() : 0;
   let levelBoost = constrain(map(level, 0, 0.3, 0, 1), 0, 1);
 
@@ -198,7 +201,7 @@ function draw() {
 
   background(currentBg);
 
-  // camera control: left-drag to orbit, scroll to zoom
+  // camera control
   orbitControl(0.6, 0.6, 0.2);
 
   // lights
@@ -238,12 +241,10 @@ function drawOrb(scene, levelBoost) {
   let rotY = 0;
 
   if (scene.movementType === "float") {
-    // gentle up/down handled by wobble
+    // gentle up/down
   } else if (scene.movementType === "wave") {
-    // side-to-side sway
     offsetX = sin(t * 1.6) * baseRadius * 0.2 * (1 + levelBoost);
   } else if (scene.movementType === "pulse") {
-    // rotation + depth pulses
     rotY = sin(t * 1.8) * 0.4 * (1 + levelBoost);
     offsetZ = cos(t * 1.3) * baseRadius * 0.15 * levelBoost;
   }
@@ -289,7 +290,6 @@ function drawHUD(scene) {
 
 // ---------------- INTERACTION ----------------
 function setScene(index) {
-  // wrap around 0..scenes.length-1
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
 
@@ -301,7 +301,6 @@ function setScene(index) {
 }
 
 function mousePressed() {
-  // needed for browser audio policies
   userStartAudio();
 
   if (mouseButton === RIGHT) {
@@ -313,19 +312,19 @@ function keyPressed() {
   userStartAudio();
 
   if (key === "1") {
-    setScene(0); // Calm
+    setScene(0);
   } else if (key === "2") {
-    setScene(1); // Happy
+    setScene(1);
   } else if (key === "3") {
-    setScene(2); // Love
+    setScene(2);
   } else if (key === "4") {
-    setScene(3); // Dream
+    setScene(3);
   } else if (key === "5") {
-    setScene(4); // Hope
+    setScene(4);
   } else if (key === "6") {
-    setScene(5); // Nostalgia
+    setScene(5);
   } else if (key === "7") {
-    setScene(6); // Alone
+    setScene(6);
   } else if (key === " ") {
     togglePlayPause();
   }
@@ -333,7 +332,7 @@ function keyPressed() {
 
 function switchAudioToCurrentScene() {
   const scene = scenes[currentSceneIndex];
-  const idx = scene.audioIndex; // 0–6
+  const idx = currentSceneIndex; // same index as scenes & tracks
 
   // stop previous track if it exists
   if (currentTrack && currentTrack.isPlaying()) {
@@ -345,6 +344,8 @@ function switchAudioToCurrentScene() {
   if (currentTrack) {
     currentTrack.loop();
     amplitude.setInput(currentTrack);
+  } else {
+    console.warn("No track loaded for mood:", scene.name);
   }
 }
 
