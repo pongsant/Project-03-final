@@ -1,4 +1,5 @@
 // 3D DREAM ORB – MUSIC REACTIVE VERSION
+// Uses only audio/track1.mp3 for all 3 moods
 
 let scenes;
 let currentSceneIndex = 0;
@@ -19,19 +20,22 @@ let currentTrack = null;
 // particles
 let particles = [];
 
+// ---------------- PRELOAD ----------------
 function preload() {
-  // load 3 audio tracks
-  tracks[0] = loadSound("audio/track1.mp3");
-  tracks[1] = loadSound("audio/track2.mp3");
-  tracks[2] = loadSound("audio/track3.mp3");
+  // You only have audio/track1.mp3, so we reuse it for all moods
+  let s = loadSound("audio/track1.mp3");
+  tracks[0] = s;
+  tracks[1] = s;
+  tracks[2] = s;
 }
 
+// ---------------- SETUP ----------------
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
 
   baseRadius = min(windowWidth, windowHeight) * 0.18;
 
-  // prevent right-click menu (so we can use RIGHT mouse)
+  // prevent right-click menu so we can use RIGHT mouse button
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // define moods / scenes
@@ -66,11 +70,12 @@ function setup() {
       bgColor: "#1a1033",
       sizeTarget: 0.9,
       wobbleTarget: 0.07,
-      movementType: "pulse", // more rotation / pulsation
+      movementType: "pulse", // rotation / depth pulse
       audioIndex: 2
     }
   ];
 
+  // starting values based on first scene
   const s = scenes[currentSceneIndex];
   currentSize = s.sizeTarget;
   currentWobble = s.wobbleTarget;
@@ -131,22 +136,22 @@ function drawParticles(scene, levelBoost) {
   pop();
 }
 
-// ---------------- MAIN DRAW ----------------
+// ---------------- DRAW ----------------
 function draw() {
   const scene = scenes[currentSceneIndex];
 
-  // how loud the music is
+  // audio level (react to music)
   let level = amplitude ? amplitude.getLevel() : 0;
   let levelBoost = constrain(map(level, 0, 0.3, 0, 1), 0, 1);
 
-  // smooth transitions for size / wobble / background
+  // smooth transitions
   currentSize = lerp(currentSize, sizeTarget, 0.08);
   currentWobble = lerp(currentWobble, wobbleTarget, 0.08);
   currentBg = lerpColor(currentBg, bgTarget, 0.06);
 
   background(currentBg);
 
-  // camera control
+  // camera control: left-drag to orbit, scroll to zoom
   orbitControl(0.6, 0.6, 0.2);
 
   // lights
@@ -157,16 +162,15 @@ function draw() {
   let lightY = -200 + 80 * sin(t * 0.9);
   let lightZ = 300 * cos(t * 0.6);
   pointLight(red(lc), green(lc), blue(lc), lightX, lightY, lightZ);
-
   directionalLight(80, 80, 120, -0.3, -0.6, -0.4);
 
-  // particles react to music
+  // particles
   drawParticles(scene, levelBoost);
 
-  // orb moves based on movement type + music
+  // orb
   drawOrb(scene, levelBoost);
 
-  // HUD text
+  // HUD
   drawHUD(scene);
 }
 
@@ -175,33 +179,30 @@ function drawOrb(scene, levelBoost) {
 
   // base breathing
   let breathing = 1 + 0.03 * sin(t * 1.5);
-  // extra breathing from music
+  // audio-reactive breathing
   breathing += levelBoost * 0.15;
 
-  // wobble amount influenced by music
+  // wobble with audio intensity
   let wobble = currentWobble * (1 + levelBoost * 1.2);
   let wobbleOffsetY = sin(t * 2.0) * baseRadius * wobble;
 
-  // position offsets for each movement type
   let offsetX = 0;
   let offsetZ = 0;
   let rotY = 0;
 
   if (scene.movementType === "float") {
-    // gentle vertical float, more breathing
-    // wobble handled above
+    // gentle up/down (already handled by wobble)
   } else if (scene.movementType === "wave") {
-    // side-to-side sway, stronger with music
+    // side-to-side sway
     offsetX = sin(t * 1.6) * baseRadius * 0.2 * (1 + levelBoost);
   } else if (scene.movementType === "pulse") {
-    // more rotation and slight forward/back
+    // rotation + depth pulses
     rotY = sin(t * 1.8) * 0.4 * (1 + levelBoost);
     offsetZ = cos(t * 1.3) * baseRadius * 0.15 * levelBoost;
   }
 
   push();
   translate(offsetX, wobbleOffsetY, offsetZ);
-
   rotateY(rotY);
 
   let oc = color(scene.orbColor);
@@ -239,7 +240,7 @@ function drawHUD(scene) {
   );
 }
 
-// -------------- INTERACTION --------------
+// ---------------- INTERACTION ----------------
 function setScene(index) {
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
@@ -248,12 +249,11 @@ function setScene(index) {
   wobbleTarget = s.wobbleTarget;
   bgTarget = color(s.bgColor);
 
-  // switch audio
   switchAudioToCurrentScene();
 }
 
 function mousePressed() {
-  // important: start audio context on first interaction
+  // needed for browser audio policies
   userStartAudio();
 
   if (mouseButton === RIGHT) {
@@ -279,7 +279,7 @@ function switchAudioToCurrentScene() {
   const scene = scenes[currentSceneIndex];
   const idx = scene.audioIndex;
 
-  // stop previous track
+  // stop previous track if it exists
   if (currentTrack && currentTrack.isPlaying()) {
     currentTrack.stop();
   }
