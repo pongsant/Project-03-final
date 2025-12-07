@@ -1,5 +1,4 @@
-// 3D DREAM ORB – MUSIC REACTIVE VERSION
-// Uses only audio/track1.mp3 for all 3 moods
+// 3D DREAM ORB – 7 MOODS, 7 SONGS, MUSIC REACTIVE
 
 let scenes;
 let currentSceneIndex = 0;
@@ -22,11 +21,15 @@ let particles = [];
 
 // ---------------- PRELOAD ----------------
 function preload() {
-  // You only have audio/track1.mp3, so we reuse it for all moods
-  let s = loadSound("audio/track1.mp3");
-  tracks[0] = s;
-  tracks[1] = s;
-  tracks[2] = s;
+  // 7 separate songs, one per mood
+  // Make sure these files EXIST in /audio and names match exactly
+  tracks[0] = loadSound("audio/calm.mp3");       // Calm
+  tracks[1] = loadSound("audio/happy.mp3");      // Happy
+  tracks[2] = loadSound("audio/love.mp3");       // Love
+  tracks[3] = loadSound("audio/dream.mp3");      // Dream
+  tracks[4] = loadSound("audio/hope.mp3");       // Hope
+  tracks[5] = loadSound("audio/nostalgia.mp3");  // Nostalgia
+  tracks[6] = loadSound("audio/alone.mp3");      // Alone
 }
 
 // ---------------- SETUP ----------------
@@ -38,40 +41,84 @@ function setup() {
   // prevent right-click menu so we can use RIGHT mouse button
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
-  // define moods / scenes
+  // define 7 moods / scenes with calm Pantone-like colors
   scenes = [
     {
-      name: "Sunrise",
-      tagline: "calm, warm, healing",
-      orbColor: "#ffe5f5",
-      lightColor: "#ffcf80",
-      bgColor: "#ffb7c9",
+      name: "Calm",
+      tagline: "soft blue, quiet breathing",
+      orbColor: "#C8E3FF",   // light sky blue
+      lightColor: "#8FB8FF",
+      bgColor: "#AFC9F2",
       sizeTarget: 1.0,
-      wobbleTarget: 0.03,
-      movementType: "float", // gentle up/down
+      wobbleTarget: 0.025,
+      movementType: "float",
       audioIndex: 0
     },
     {
-      name: "Tide",
-      tagline: "movement, change, flow",
-      orbColor: "#ffd6b3",
-      lightColor: "#9fe8ff",
-      bgColor: "#f28ac5",
-      sizeTarget: 1.2,
-      wobbleTarget: 0.05,
-      movementType: "wave", // side-to-side sway
+      name: "Happy",
+      tagline: "warm yellow, gentle joy",
+      orbColor: "#FFE7A3",
+      lightColor: "#FFD46B",
+      bgColor: "#FFEDBD",
+      sizeTarget: 1.15,
+      wobbleTarget: 0.035,
+      movementType: "wave",
       audioIndex: 1
     },
     {
-      name: "Starlight",
-      tagline: "distance, memory, dream",
-      orbColor: "#d4c3ff",
-      lightColor: "#88f7ff",
-      bgColor: "#1a1033",
-      sizeTarget: 0.9,
-      wobbleTarget: 0.07,
-      movementType: "pulse", // rotation / depth pulse
+      name: "Love",
+      tagline: "soft pink, slow glow",
+      orbColor: "#FFC6D9",
+      lightColor: "#FF9BBF",
+      bgColor: "#FFDFEB",
+      sizeTarget: 1.1,
+      wobbleTarget: 0.03,
+      movementType: "float",
       audioIndex: 2
+    },
+    {
+      name: "Dream",
+      tagline: "lavender haze, drifting",
+      orbColor: "#DCCBFF",
+      lightColor: "#B89CFF",
+      bgColor: "#C8B5FF",
+      sizeTarget: 0.95,
+      wobbleTarget: 0.04,
+      movementType: "pulse",
+      audioIndex: 3
+    },
+    {
+      name: "Hope",
+      tagline: "mint air, quiet growth",
+      orbColor: "#C8F4D9",
+      lightColor: "#9EE8BD",
+      bgColor: "#B9EDD0",
+      sizeTarget: 1.05,
+      wobbleTarget: 0.03,
+      movementType: "wave",
+      audioIndex: 4
+    },
+    {
+      name: "Nostalgia",
+      tagline: "peach glow, far memories",
+      orbColor: "#FFD1B3",
+      lightColor: "#FFAE80",
+      bgColor: "#FFE1C9",
+      sizeTarget: 0.9,
+      wobbleTarget: 0.025,
+      movementType: "float",
+      audioIndex: 5
+    },
+    {
+      name: "Alone",
+      tagline: "blue-violet, soft sadness",
+      orbColor: "#C0C4FF",
+      lightColor: "#8A92FF",
+      bgColor: "#939BCF",
+      sizeTarget: 0.85,
+      wobbleTarget: 0.05,
+      movementType: "pulse",
+      audioIndex: 6
     }
   ];
 
@@ -191,7 +238,7 @@ function drawOrb(scene, levelBoost) {
   let rotY = 0;
 
   if (scene.movementType === "float") {
-    // gentle up/down (already handled by wobble)
+    // gentle up/down handled by wobble
   } else if (scene.movementType === "wave") {
     // side-to-side sway
     offsetX = sin(t * 1.6) * baseRadius * 0.2 * (1 + levelBoost);
@@ -225,23 +272,24 @@ function drawHUD(scene) {
   fill(255);
   textAlign(LEFT, BOTTOM);
   textSize(16);
-  text(scene.name, 24, height - 44);
+  text(scene.name, 24, height - 48);
 
   textSize(12);
   fill(230);
-  text(scene.tagline, 24, height - 26);
+  text(scene.tagline, 24, height - 30);
 
   textSize(11);
   fill(210);
   text(
-    "Left-drag: orbit • Right-click / 1 / 2 / 3: change mood • Space: pause/play",
+    "Left-drag: orbit • Right-click / 1–7: change mood • Space: pause/play",
     24,
-    height - 10
+    height - 12
   );
 }
 
 // ---------------- INTERACTION ----------------
 function setScene(index) {
+  // wrap around 0..scenes.length-1
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
 
@@ -265,11 +313,19 @@ function keyPressed() {
   userStartAudio();
 
   if (key === "1") {
-    setScene(0);
+    setScene(0); // Calm
   } else if (key === "2") {
-    setScene(1);
+    setScene(1); // Happy
   } else if (key === "3") {
-    setScene(2);
+    setScene(2); // Love
+  } else if (key === "4") {
+    setScene(3); // Dream
+  } else if (key === "5") {
+    setScene(4); // Hope
+  } else if (key === "6") {
+    setScene(5); // Nostalgia
+  } else if (key === "7") {
+    setScene(6); // Alone
   } else if (key === " ") {
     togglePlayPause();
   }
@@ -277,7 +333,7 @@ function keyPressed() {
 
 function switchAudioToCurrentScene() {
   const scene = scenes[currentSceneIndex];
-  const idx = scene.audioIndex;
+  const idx = scene.audioIndex; // 0–6
 
   // stop previous track if it exists
   if (currentTrack && currentTrack.isPlaying()) {
