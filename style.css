@@ -9,20 +9,21 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-  background: radial-gradient(circle at top, #ffb9cf 0%, #1c0f27 55%, #050515 100%);
-  color: #fdf6ff;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Inter", sans-serif;
+  background: radial-gradient(circle at top, #151522 0%, #030308 55%, #000000 100%);
+  color: #f5f5f7;
 }
 
-/* p5 canvas fills the screen */
+/* canvas */
 canvas {
   display: block;
 }
 
-/* Title + instructions */
+/* hero title */
 .overlay {
   position: fixed;
-  top: 20px;
+  top: 52px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
@@ -31,93 +32,108 @@ canvas {
 }
 
 .overlay h1 {
-  font-size: 1.4rem;
-  letter-spacing: 0.12em;
+  font-size: 2.1rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.overlay p {
-  font-size: 0.85rem;
-  opacity: 0.85;
-}
-
-/* Mood UI panel at bottom */
-.ui-panel {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 900px;
-  width: calc(100% - 32px);
-  padding: 14px 18px;
-  border-radius: 16px;
-  background: rgba(4, 2, 12, 0.78);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
-  z-index: 20;
-}
-
-.mood-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  font-weight: 600;
+  color: #f5f5f7;
   margin-bottom: 10px;
 }
 
-.mood-button {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 999px;
-  padding: 6px 14px;
+.overlay p {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+/* info panel at bottom */
+.ui-panel {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 980px;
+  width: calc(100% - 40px);
+  padding: 16px 22px 16px;
+  border-radius: 22px;
+  background: rgba(8, 8, 16, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(26px) saturate(130%);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.7),
+    0 0 0 0.5px rgba(255, 255, 255, 0.06);
+  z-index: 20;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.panel-label {
   font-size: 0.8rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #fdf6ff;
-  cursor: pointer;
-  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease,
-    box-shadow 160ms ease, color 160ms ease;
+  opacity: 0.7;
 }
 
-.mood-button:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.08);
+.panel-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  opacity: 0.96;
 }
 
-.mood-button.active {
-  background: linear-gradient(120deg, #ffb9cf, #ff85b5);
-  border-color: transparent;
-  color: #1d0616;
-  box-shadow: 0 0 16px rgba(255, 150, 210, 0.65);
+.panel-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.06)
+  );
+  margin-bottom: 10px;
 }
 
 .mood-description {
-  font-size: 0.85rem;
-  line-height: 1.5;
-  opacity: 0.9;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  opacity: 0.92;
+  color: #e3e4ea;
 }
 
-/* Small screens */
+/* small screens */
 @media (max-width: 640px) {
+  .overlay {
+    top: 30px;
+  }
+
   .overlay h1 {
-    font-size: 1.1rem;
+    font-size: 1.4rem;
+    letter-spacing: 0.14em;
   }
 
   .overlay p {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
   }
 
   .ui-panel {
     bottom: 16px;
-    padding: 12px 14px;
+    padding: 14px 14px 14px;
   }
 
-  .mood-button {
-    font-size: 0.7rem;
-    padding: 6px 10px;
+  .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .panel-value {
+    font-size: 0.82rem;
   }
 
   .mood-description {
-    font-size: 0.8rem;
+    font-size: 0.76rem;
   }
 }
