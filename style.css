@@ -14,8 +14,8 @@ body {
   height: 100%;
   overflow: hidden;
   font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-  background: linear-gradient(135deg, #fc8b1b, #1c2efd);
-  color: #27212F;
+  background: radial-gradient(circle at top, #1f2340 0%, #070814 60%, #000000 100%);
+  color: #f5f5f7;
 }
 
 /* Let the p5 canvas fill the screen behind everything */
@@ -33,14 +33,12 @@ body > canvas {
   top: 24px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+  background: rgba(6, 6, 14, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  color: #27212F;
   z-index: 10;
-  pointer-events: none; /* mouse goes through to canvas */
 }
 
 .overlay h1 {
@@ -63,11 +61,10 @@ body > canvas {
   bottom: 24px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
-  color: #27212F;
-  pointer-events: none;
+  background: rgba(6, 6, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
   z-index: 10;
   max-width: 260px;
   font-size: 0.78rem;
@@ -92,14 +89,32 @@ body > canvas {
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
 }
 
 .legend-item:last-child {
   margin-bottom: 0;
 }
 
+.legend-item:hover {
+  opacity: 1;
+  transform: translateX(-2px);
+}
+
 .legend-item span:last-child {
-  opacity: 0.9;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+/* Active mood = brighter text */
+.legend-item.is-active {
+  opacity: 1;
+}
+
+.legend-item.is-active span:last-child {
+  color: #ffffff;
+  font-weight: 600;
 }
 
 /* Color dots that match the orb moods */
@@ -107,7 +122,7 @@ body > canvas {
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .swatch--calm {
@@ -136,4 +151,20 @@ body > canvas {
 
 .swatch--alone {
   background: #3b4bfa;
+}
+
+/* Small screen tweak */
+@media (max-width: 640px) {
+  .legend {
+    max-width: 220px;
+    font-size: 0.72rem;
+  }
+
+  .overlay h1 {
+    font-size: 1.1rem;
+  }
+
+  .overlay p {
+    font-size: 0.7rem;
+  }
 }

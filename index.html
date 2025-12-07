@@ -5,6 +5,7 @@
   <title>Dream Orb Visualizer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
+
   <!-- p5.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <!-- p5.sound -->
@@ -15,7 +16,7 @@
   <div class="overlay">
     <h1>Dream Orb</h1>
     <p>
-      Left-drag to orbit · Right-click or 1–7 to change mood · Space to pause/play
+      Left-drag: orbit · Right-click or 1–7: change mood · Space: play/pause · , / .: prev / next song
     </p>
   </div>
 
@@ -23,31 +24,31 @@
   <div class="legend">
     <h2>Mood Colors</h2>
     <ul class="legend-list">
-      <li class="legend-item">
+      <li class="legend-item" data-index="0">
         <span class="swatch swatch--calm"></span>
         <span>Calm – soft blue</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="1">
         <span class="swatch swatch--happy"></span>
         <span>Happy – warm yellow</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="2">
         <span class="swatch swatch--love"></span>
         <span>Love – soft pink</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="3">
         <span class="swatch swatch--dream"></span>
         <span>Dream – lavender</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="4">
         <span class="swatch swatch--hope"></span>
-        <span>Hope – mint green</span>
+        <span>Hope – mint</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="5">
         <span class="swatch swatch--nostalgia"></span>
         <span>Nostalgia – peach</span>
       </li>
-      <li class="legend-item">
+      <li class="legend-item" data-index="6">
         <span class="swatch swatch--alone"></span>
         <span>Alone – blue violet</span>
       </li>
