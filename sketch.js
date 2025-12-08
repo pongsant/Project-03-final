@@ -1,4 +1,4 @@
-// JELLY ORB – BRIGHT 3D MUSIC VISUALIZER (WEBGL)
+// MUSIC ORB – VIBE-REACTIVE BLOB + SIMPLE GRADIENT BACKGROUND
 //
 // Controls:
 //  - Left drag: orbit around orb
@@ -7,7 +7,7 @@
 //  - 1–7: pick mood
 //  - Space: play / pause
 //  - C / Z / X: tracks 1 / 2 / 3 in current mood
-//  - Click legend item (HTML .legend-item) to change mood
+//  - Click legend item (.legend-item) to change mood
 
 // ---------- GLOBALS ----------
 
@@ -19,12 +19,20 @@ let baseRadius;
 // sound: tracks[moodIndex][trackIndex]
 let tracks = [];
 let amplitude;
+let fft;
 let currentTrack = null;
 let currentTrackIndex = 0;
 
-// bright pastel background
+// background colors
 let bgTopCurrent, bgBottomCurrent;
 let bgTopTarget, bgBottomTarget;
+
+// smoothed chaos so animation is not stressful
+let chaosSmoothed = 0.1;
+
+// “beat” and “vibe” smoothing
+let beatSmoothed = 0;  // small accents from drums
+let vibeSmoothed = 0;  // main smooth movement from song
 
 // ---------- SETUP ----------
 
@@ -35,7 +43,8 @@ function setup() {
   // disable default right-click menu on the canvas
   cnv.elt.oncontextmenu = () => false;
 
-  baseRadius = min(windowWidth, windowHeight) * 0.22;
+  // smaller orb
+  baseRadius = min(windowWidth, windowHeight) * 0.18;
 
   // moods
   scenes = [
@@ -98,9 +107,12 @@ function setup() {
   bgTopTarget = color(s.lightColor);
   bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
 
-  // amplitude analyzer
+  // amplitude analyzer (smooth)
   amplitude = new p5.Amplitude();
-  amplitude.smooth(0.8);
+  amplitude.smooth(0.9);
+
+  // FFT for spectrum (vibe + light beat detection)
+  fft = new p5.FFT(0.8, 1024);
 
   // load all audio files
   tracks = [];
@@ -129,10 +141,10 @@ function setup() {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight, WEBGL);
-  baseRadius = min(windowWidth, windowHeight) * 0.22;
+  baseRadius = min(windowWidth, windowHeight) * 0.18;
 }
 
-// ---------- BACKGROUND (BRIGHT + GLOW WAVES) ----------
+// ---------- SIMPLE BRIGHT BACKGROUND (OLD VERSION STYLE) ----------
 
 function drawBrightBackground(levelBoost) {
   push();
@@ -144,15 +156,15 @@ function drawBrightBackground(levelBoost) {
   bgBottomCurrent = lerpColor(bgBottomCurrent, bgBottomTarget, 0.04);
 
   let steps = 140;
-  let t = millis() * 0.0015;
+  let t = millis() * 0.0009; // slow shimmer
 
   noStroke();
   for (let i = 0; i < steps; i++) {
     let amt = i / (steps - 1);
     let c = lerpColor(bgTopCurrent, bgBottomCurrent, amt);
 
-    // subtle shimmer like your first code
-    let pulse = sin(amt * PI * 3 + t) * 18 * levelBoost;
+    // subtle shimmer
+    let pulse = sin(amt * PI * 2.0 + t * 4.0) * 6 * levelBoost;
     let r = red(c) + pulse;
     let g = green(c) + pulse * 0.7;
     let b = blue(c) + pulse * 0.5;
@@ -172,25 +184,56 @@ function draw() {
 
   const scene = scenes[currentSceneIndex];
 
+  // overall loudness
   let level = amplitude ? amplitude.getLevel() : 0;
   let levelBoost = constrain(map(level, 0, 0.3, 0, 1), 0, 1);
 
-  // background
+  // spectrum
+  let spectrum = fft.analyze();
+
+  // low = drums, mid/high = vibe / harmony / brightness
+  let lowEnergy = fft.getEnergy(40, 180);      // kick-ish
+  let midEnergy = fft.getEnergy(200, 2000);    // body of song
+  let highEnergy = fft.getEnergy(2000, 8000);  // air / brightness
+
+  // light beat (small effect)
+  let rawBeat = max(lowEnergy, midEnergy) / 255.0;
+  rawBeat = constrain((rawBeat - 0.3) * 1.7, 0, 1);
+  beatSmoothed = lerp(beatSmoothed, rawBeat, 0.2);
+  let beatPulse = beatSmoothed;
+
+  // vibe = main driver (mid + high)
+  let rawVibe = (midEnergy * 0.6 + highEnergy * 0.4) / 255.0;
+  rawVibe = constrain(rawVibe, 0, 1);
+  vibeSmoothed = lerp(vibeSmoothed, rawVibe, 0.15);
+  let vibe = vibeSmoothed;
+
+  // chaosTarget = mostly level + vibe, plus small beat spice
+  let chaosTarget =
+    constrain(map(level, 0, 0.3, 0.05, 0.55), 0.05, 0.55) +
+    vibe * 0.35 +
+    beatPulse * 0.15;
+  chaosTarget = constrain(chaosTarget, 0.05, 0.85);
+
+  chaosSmoothed = lerp(chaosSmoothed, chaosTarget, 0.06);
+  let chaos = chaosSmoothed;
+
+  // SIMPLE background (old style)
   drawBrightBackground(levelBoost);
 
-  // 3D orb
+  // 3D orb / blob
   push();
   orbitControl(0.7, 0.7, 0.3);
-  drawEnergyOrb(scene, levelBoost);
+  drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse);
   pop();
 
   // HUD
-  drawHUD(scene);
+  drawHUD(scene, chaos, level, vibe, beatPulse);
 }
 
-// ---------- JELLY ORB WITH SOFT SHADOW ----------
+// ---------- ORB – VIBE-REACTIVE SMOOTH BLOB ----------
 
-function drawEnergyOrb(scene, levelBoost) {
+function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
   const t = millis() * 0.001;
 
   let orbCol = color(scene.orbColor);
@@ -198,59 +241,91 @@ function drawEnergyOrb(scene, levelBoost) {
 
   let baseR = baseRadius;
 
-  // how much the surface deforms (0 = perfect sphere, 1 = very blobby)
-  let deformAmount = map(levelBoost, 0, 1, 0.03, 0.25);
-  deformAmount = constrain(deformAmount, 0.03, 0.25);
+  // deformation amount – soft but expressive
+  let deformAmount = map(chaos, 0.05, 0.85, 0.01, 0.24);
 
-  // global jelly squash & stretch (soft wobble)
-  let squashY = 1.0 + 0.18 * levelBoost * sin(t * 2.0);
-  let squashX = 1.0 - 0.10 * levelBoost * sin(t * 2.0 + 1.2);
-  let squashZ = 1.0 - 0.10 * levelBoost * sin(t * 2.0 - 0.6);
+  // breathing squash:
+  //   vibe = smooth breathing
+  //   beat = tiny quick flick
+  let breatheBase = sin(t * (0.7 + vibe * 0.9)) * 0.18 * (0.3 + chaos);
+  let drumBreathe = beatPulse * 0.15;
+  let breathe = breatheBase + drumBreathe;
+
+  let squashY = 1.0 + breathe;
+  let squashX = 1.0 - breathe * 0.45;
+  let squashZ = 1.0 - breathe * 0.5;
 
   push();
 
-  // --- SOFT SHADOW UNDER ORB (3D cue) ---
+  // ---------- ORIENTATION RINGS (FOLLOW VIBE) ----------
   push();
+  blendMode(ADD);
+  noFill();
+
+  let ringBase = lerpColor(color(255), orbCol, 0.5);
+  let ringAlpha = 55 + 70 * vibe + 35 * levelBoost + 30 * beatPulse;
+  ringBase.setAlpha(ringAlpha);
+  stroke(ringBase);
+
+  let ringThickness = baseR * (0.018 + vibe * 0.02);
+  strokeWeight(1.2 + vibe * 0.8);
+
+  // equator ring
+  torus(baseR * (0.95 + vibe * 0.08), ringThickness, 60, 16);
+
+  // tilted ring 1
+  rotateX(PI / 3);
+  torus(baseR * (0.85 + vibe * 0.06), ringThickness * 0.9, 60, 16);
+
+  // tilted ring 2
+  rotateY(PI / 3);
+  torus(baseR * (0.8 + vibe * 0.04), ringThickness * 0.85, 60, 16);
+
   blendMode(BLEND);
-  noStroke();
-
-  // light colored shadow based on orb color
-  let shadowCol = lerpColor(color(0, 0, 0, 0), orbCol, 0.2);
-  shadowCol.setAlpha(80 + levelBoost * 40);
-
-  translate(0, baseR * 1.3, 0); // below orb
-  rotateX(HALF_PI);            // lay flat
-  fill(shadowCol);
-  ellipse(0, 0, baseR * 2.2, baseR * 1.4);
   pop();
 
-  // --- ORB ITSELF ---
+  // ---------- ORB BODY / BLOB ----------
+
   blendMode(ADD);
 
-  // slow rotation so it always feels alive
-  rotateY(t * 0.28);
-  rotateX(sin(t * 0.5) * 0.35);
+  // rotation:
+  //   vibe = main rotation speed
+  //   beat = small twist
+  let drumTwist = beatPulse * 0.25;
+  rotateY(t * (0.12 + vibe * 0.25) + drumTwist * 0.3);
+  rotateX(sin(t * (0.25 + vibe * 0.4)) * 0.28 + drumTwist * 0.2);
 
-  // jelly squash
   scale(squashX, squashY, squashZ);
 
-  // aura
+  // outer halo, mood-colored
   noStroke();
-  let auraCol = lerpColor(lightCol, orbCol, 0.45);
-  auraCol.setAlpha(45 + levelBoost * 55);
-  fill(auraCol);
-  sphere(baseR * 1.4, 32, 24);
+  let haloCol = lerpColor(lightCol, orbCol, 0.35);
+  haloCol.setAlpha(40 + levelBoost * 60 + vibe * 50 + beatPulse * 35);
+  fill(haloCol);
+  sphere(baseR * (1.2 + vibe * 0.12), 40, 32);
 
-  // jelly surface: soft noise-deformed sphere
-  let latSteps = 34;
-  let lonSteps = 68;
-  let noiseScale = 1.3;
-  let flowSpeed = 0.8;
+  // outer glass shell
+  let shellCol = lerpColor(lightCol, color(255), 0.6);
+  shellCol.setAlpha(120 + levelBoost * 60 + vibe * 40);
+  fill(shellCol);
+  sphere(baseR * 0.98, 40, 32);
+
+  // ---- mood-based iridescent colors (changes with mood) ----
+  let cA = lerpColor(lightCol, orbCol, 0.15);
+  let cB = lerpColor(lightCol, orbCol, 0.7);
+  let cC = lerpColor(orbCol, color(255), 0.35);
+
+  // shapeless “surface” made of points
+  let latSteps = 44;
+  let lonSteps = 88;
+  let noiseScale = 1.2;
+  let flowSpeed = 0.35 + vibe * 0.7; // vibe = main flow speed
 
   for (let i = 0; i <= latSteps; i++) {
     let v = i / latSteps;
-    let theta = v * PI; // 0..PI
+    let theta = v * PI;
 
+    beginShape(POINTS);
     for (let j = 0; j < lonSteps; j++) {
       let u = j / lonSteps;
       let phi = u * TWO_PI;
@@ -265,40 +340,53 @@ function drawEnergyOrb(scene, levelBoost) {
         sz * noiseScale + 30.0 + t * flowSpeed
       );
 
-      // center noise and use deformAmount
-      let offset = (n - 0.5) * 2.0 * deformAmount;
+      let drumOffset = beatPulse * 0.22;
+      let offset = (n - 0.5) * 2.0 * deformAmount + drumOffset * (n - 0.3);
       let r = baseR * (1.0 + offset);
 
       let px = sx * r;
       let py = sy * r;
       let pz = sz * r;
 
-      // color: soft mix of light + orb color
-      let colMix = 0.35 + n * 0.65;
-      let c = lerpColor(lightCol, orbCol, colMix);
-      let alpha = 160 + levelBoost * 90 - v * 45;
-      c.setAlpha(constrain(alpha, 50, 255));
+      // color bands: vibe affects how much they move
+      let band1 = sin(theta * (1.0 + vibe * 0.6) + t * 0.45);
+      let band2 = sin(phi * (2.0 + vibe * 0.8) - t * 0.3);
+      let mixAmt = (band1 * 0.4 + band2 * 0.6 + 2.0) * 0.25;
+      mixAmt = constrain(mixAmt, 0, 1);
 
-      stroke(c);
-      let w = 2.0 - v * 0.9;
-      w *= 1.0 + levelBoost * 0.6;
-      strokeWeight(max(0.7, w));
-      point(px, py, pz);
+      let baseBand = lerpColor(cA, cB, mixAmt);
+      let accentBand = lerpColor(cC, orbCol, 0.5);
+      let col = lerpColor(baseBand, accentBand, 0.4 + 0.25 * n);
+
+      let edgeFade = pow(sin(theta), 0.7);
+      let alpha =
+        (80 + 100 * chaos + 40 * vibe + 30 * beatPulse) * edgeFade;
+      col.setAlpha(alpha);
+
+      stroke(col);
+      strokeWeight(0.8 + chaos * 0.4 + vibe * 0.3);
+      vertex(px, py, pz);
     }
+    endShape();
   }
 
-  // inner core (round & soft)
+  // inner luminous core
   noStroke();
-  let coreCol = lerpColor(lightCol, color("#ffffff"), 0.55);
-  coreCol.setAlpha(230);
+  let coreCol = lerpColor(lightCol, color("#ffffff"), 0.7);
+  coreCol.setAlpha(215 + vibe * 30);
   fill(coreCol);
-  sphere(baseR * 0.45, 36, 28);
+  sphere(baseR * 0.5, 36, 28);
 
-  // tiny bright heart
-  let heartCol = color(255);
-  heartCol.setAlpha(255);
-  fill(heartCol);
-  sphere(baseR * 0.2, 24, 18);
+  // tiny highlight sun at bottom-right
+  push();
+  rotateY(0.55);
+  rotateX(0.38);
+  translate(0, baseR * 0.34, baseR * 0.12);
+  let sunCol = color(255, 245, 230);
+  sunCol.setAlpha(230 + beatPulse * 20);
+  fill(sunCol);
+  sphere(baseR * 0.17, 22, 16);
+  pop();
 
   blendMode(BLEND);
   pop();
@@ -306,7 +394,7 @@ function drawEnergyOrb(scene, levelBoost) {
 
 // ---------- HUD / TEXT ----------
 
-function drawHUD(scene) {
+function drawHUD(scene, chaos, level, vibe, beatPulse) {
   push();
   resetMatrix();
   translate(-width / 2, -height / 2);
@@ -316,15 +404,15 @@ function drawHUD(scene) {
   // title
   fill(25, 25, 35, 220);
   textSize(20);
-  text(scene.name, 24, 24);
+  text(scene.name + " mood", 24, 24);
 
   // tagline
   fill(40, 40, 60, 210);
   textSize(13);
   text(scene.tagline, 24, 48);
 
-  // instructions (bottom-left)
-  let yBase = height - 70;
+  // info
+  let yBase = height - 80;
   textSize(11);
   fill(50, 50, 70, 200);
   text(
@@ -333,15 +421,25 @@ function drawHUD(scene) {
     yBase
   );
 
-  // track info
   const moodTracks = tracks[currentSceneIndex];
+  let trackInfo = "";
   if (moodTracks && moodTracks.length > 0) {
-    text(
-      "Track " + (currentTrackIndex + 1) + " / " + moodTracks.length,
-      24,
-      yBase + 16
-    );
+    trackInfo = "Track " + (currentTrackIndex + 1) + " / " + moodTracks.length;
   }
+
+  text(
+    trackInfo +
+      "   |   Chaos: " +
+      chaos.toFixed(2) +
+      "   Level: " +
+      level.toFixed(3) +
+      "   Vibe: " +
+      vibe.toFixed(2) +
+      "   Beat: " +
+      beatPulse.toFixed(2),
+    24,
+    yBase + 16
+  );
 
   pop();
 }
@@ -383,6 +481,7 @@ function switchAudioToCurrentScene() {
   if (currentTrack) {
     currentTrack.loop();
     amplitude.setInput(currentTrack);
+    fft.setInput(currentTrack);
   } else {
     console.warn("Track not loaded for mood:", mi, "track:", currentTrackIndex);
   }
@@ -457,7 +556,7 @@ function keyPressed() {
     }
   }
 
-  // track selection in current mood
+  // track selection in current mood (C/Z/X)
   else if (key === "c" || key === "C") {
     jumpToTrackInCurrentMood(0);
   } else if (key === "z" || key === "Z") {
