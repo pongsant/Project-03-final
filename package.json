@@ -1,16 +1,13 @@
 {
-  "name": "project-03-final",
+  "name": "Project-03-final",
   "version": "1.0.0",
-  "main": "sever.js",
+  "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "express": "^5.2.1",
-    "ws": "^8.18.3"
+    "express": "^4.21.0",
+    "socket.io": "^4.8.0"
   }
 }

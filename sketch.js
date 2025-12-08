@@ -1,16 +1,9 @@
-// MUSIC ORB – VIBE-REACTIVE BLOB + SIMPLE GRADIENT BACKGROUND
-//
-// Controls:
-//  - Left drag: orbit around orb
-//  - Scroll: zoom
-//  - Right click: next mood
-//  - 1–7: pick mood
-//  - Space: play / pause
-//  - C / Z / X: tracks 1 / 2 / 3 in current mood
-//  - Click legend item (.legend-item) to change mood
+// --------------------------------------------
+// MUSIC ORB – REALTIME COLLAB VERSION
+// Based on your working single-user code
+// --------------------------------------------
 
-// ---------- GLOBALS ----------
-
+// scenes & audio
 let scenes;
 let currentSceneIndex = 0;
 
@@ -33,6 +26,14 @@ let chaosSmoothed = 0.1;
 // “beat” and “vibe” smoothing
 let beatSmoothed = 0;  // small accents from drums
 let vibeSmoothed = 0;  // main smooth movement from song
+
+// ---------- REALTIME COLLAB STATE ----------
+let ws;
+let sharedSceneIndex = 0;
+let sharedTrackIndex = 0;
+let sharedPlaying = false;
+let lastAppliedSceneIndex = -1;
+let lastAppliedTrackIndex = -1;
 
 // ---------- SETUP ----------
 
@@ -67,7 +68,7 @@ function setup() {
       tagline: "soft pink glow",
       orbColor: "#ff82b2",
       lightColor: "#ffc7dc",
-      audioFiles: ["love.mp3"]
+      audioFiles: ["love.mp3"] // you can add more later: ["love.mp3","love2.mp3", ...]
     },
     {
       name: "Dream",
@@ -137,6 +138,12 @@ function setup() {
   setupLegendClicks();
   cursor(ARROW);
   textFont("Space Grotesk, system-ui, sans-serif");
+
+  // setup WebSocket for realtime collab
+  setupWebSocket();
+
+  // local fallback visuals
+  applySceneVisual(0);
 }
 
 function windowResized() {
@@ -144,7 +151,110 @@ function windowResized() {
   baseRadius = min(windowWidth, windowHeight) * 0.18;
 }
 
-// ---------- SIMPLE BRIGHT BACKGROUND (OLD VERSION STYLE) ----------
+// ---------- WEBSOCKET HELPERS ----------
+
+function setupWebSocket() {
+  const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+  const url = protocol + window.location.host;
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    console.log("WebSocket connected:", url);
+  };
+
+  ws.onmessage = (event) => {
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (e) {
+      console.error("WS message parse error:", event.data);
+      return;
+    }
+
+    // Shared state from server
+    if (typeof data.sceneIndex === "number") sharedSceneIndex = data.sceneIndex;
+    if (typeof data.trackIndex === "number") sharedTrackIndex = data.trackIndex;
+    if (typeof data.playing === "boolean") sharedPlaying = data.playing;
+
+    applySharedStateFromServer();
+  };
+
+  ws.onclose = () => {
+    console.warn("WebSocket closed – using local only.");
+  };
+
+  ws.onerror = (err) => {
+    console.error("WebSocket error:", err);
+  };
+}
+
+function sendToServer(payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(payload));
+  } else {
+    // fallback: update local if server not available
+    if (payload.type === "setScene") {
+      sharedSceneIndex = payload.sceneIndex;
+    } else if (payload.type === "nextScene") {
+      sharedSceneIndex = (sharedSceneIndex + 1) % scenes.length;
+    } else if (payload.type === "setTrack") {
+      sharedTrackIndex = payload.trackIndex;
+      sharedPlaying = true;
+    } else if (payload.type === "togglePlay") {
+      sharedPlaying = !sharedPlaying;
+    }
+    applySharedStateFromServer();
+  }
+}
+
+function applySharedStateFromServer() {
+  // clamp
+  sharedSceneIndex = (sharedSceneIndex + scenes.length) % scenes.length;
+  const moodTracks = tracks[sharedSceneIndex] || [];
+  const maxTrack = Math.max(moodTracks.length - 1, 0);
+  sharedTrackIndex = constrain(sharedTrackIndex, 0, maxTrack);
+
+  // if scene or track changed -> change visuals & track
+  if (
+    sharedSceneIndex !== lastAppliedSceneIndex ||
+    sharedTrackIndex !== lastAppliedTrackIndex
+  ) {
+    currentSceneIndex = sharedSceneIndex;
+    currentTrackIndex = sharedTrackIndex;
+
+    applySceneVisual(currentSceneIndex);
+    switchAudioToCurrentScene();
+
+    lastAppliedSceneIndex = sharedSceneIndex;
+    lastAppliedTrackIndex = sharedTrackIndex;
+  }
+
+  // apply play/pause
+  if (currentTrack) {
+    if (sharedPlaying) {
+      if (!currentTrack.isPlaying()) currentTrack.loop();
+    } else {
+      if (currentTrack.isPlaying()) currentTrack.pause();
+    }
+  }
+}
+
+// Convenience wrappers for user actions
+function requestSetScene(index) {
+  sendToServer({ type: "setScene", sceneIndex: index });
+}
+function requestNextScene() {
+  sendToServer({ type: "nextScene" });
+}
+function requestTogglePlay() {
+  sendToServer({ type: "togglePlay" });
+}
+function requestSetTrack(index) {
+  sendToServer({ type: "setTrack", trackIndex: index });
+}
+
+// ---------- SIMPLE BRIGHT BACKGROUND ----------
 
 function drawBrightBackground(levelBoost) {
   push();
@@ -218,7 +328,7 @@ function draw() {
   chaosSmoothed = lerp(chaosSmoothed, chaosTarget, 0.06);
   let chaos = chaosSmoothed;
 
-  // SIMPLE background (old style)
+  // background
   drawBrightBackground(levelBoost);
 
   // 3D orb / blob
@@ -245,8 +355,6 @@ function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
   let deformAmount = map(chaos, 0.05, 0.85, 0.01, 0.24);
 
   // breathing squash:
-  //   vibe = smooth breathing
-  //   beat = tiny quick flick
   let breatheBase = sin(t * (0.7 + vibe * 0.9)) * 0.18 * (0.3 + chaos);
   let drumBreathe = beatPulse * 0.15;
   let breathe = breatheBase + drumBreathe;
@@ -257,7 +365,7 @@ function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
 
   push();
 
-  // ---------- ORIENTATION RINGS (FOLLOW VIBE) ----------
+  // ORIENTATION RINGS
   push();
   blendMode(ADD);
   noFill();
@@ -284,20 +392,17 @@ function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
   blendMode(BLEND);
   pop();
 
-  // ---------- ORB BODY / BLOB ----------
-
+  // ORB BODY / BLOB
   blendMode(ADD);
 
-  // rotation:
-  //   vibe = main rotation speed
-  //   beat = small twist
+  // rotation
   let drumTwist = beatPulse * 0.25;
   rotateY(t * (0.12 + vibe * 0.25) + drumTwist * 0.3);
   rotateX(sin(t * (0.25 + vibe * 0.4)) * 0.28 + drumTwist * 0.2);
 
   scale(squashX, squashY, squashZ);
 
-  // outer halo, mood-colored
+  // outer halo
   noStroke();
   let haloCol = lerpColor(lightCol, orbCol, 0.35);
   haloCol.setAlpha(40 + levelBoost * 60 + vibe * 50 + beatPulse * 35);
@@ -310,16 +415,15 @@ function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
   fill(shellCol);
   sphere(baseR * 0.98, 40, 32);
 
-  // ---- mood-based iridescent colors (changes with mood) ----
+  // iridescent points surface
   let cA = lerpColor(lightCol, orbCol, 0.15);
   let cB = lerpColor(lightCol, orbCol, 0.7);
   let cC = lerpColor(orbCol, color(255), 0.35);
 
-  // shapeless “surface” made of points
   let latSteps = 44;
   let lonSteps = 88;
   let noiseScale = 1.2;
-  let flowSpeed = 0.35 + vibe * 0.7; // vibe = main flow speed
+  let flowSpeed = 0.35 + vibe * 0.7;
 
   for (let i = 0; i <= latSteps; i++) {
     let v = i / latSteps;
@@ -348,7 +452,6 @@ function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
       let py = sy * r;
       let pz = sz * r;
 
-      // color bands: vibe affects how much they move
       let band1 = sin(theta * (1.0 + vibe * 0.6) + t * 0.45);
       let band2 = sin(phi * (2.0 + vibe * 0.8) - t * 0.3);
       let mixAmt = (band1 * 0.4 + band2 * 0.6 + 2.0) * 0.25;
@@ -444,18 +547,14 @@ function drawHUD(scene, chaos, level, vibe, beatPulse) {
   pop();
 }
 
-// ---------- MOOD / AUDIO HELPERS ----------
+// ---------- MOOD / AUDIO HELPERS (LOCAL) ----------
 
-function setScene(index) {
+function applySceneVisual(index) {
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
-
   bgTopTarget = color(s.lightColor);
   bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
-
-  currentTrackIndex = 0;
   updateLegendActive();
-  switchAudioToCurrentScene();
 }
 
 function switchAudioToCurrentScene() {
@@ -498,8 +597,8 @@ function jumpToTrackInCurrentMood(targetIndex) {
   if (idx < 0) idx = 0;
   if (idx >= totalTracks) idx = totalTracks - 1;
 
-  currentTrackIndex = idx;
-  switchAudioToCurrentScene();
+  // instead of local switch, ask server
+  requestSetTrack(idx);
 }
 
 // ---------- LEGEND CLICKS (HTML) ----------
@@ -512,7 +611,7 @@ function setupLegendClicks() {
     const idx = parseInt(item.dataset.index, 10);
     item.addEventListener("click", () => {
       userStartAudio();
-      setScene(idx);
+      requestSetScene(idx);
     });
   });
   updateLegendActive();
@@ -537,26 +636,22 @@ function updateLegendActive() {
 function keyPressed() {
   userStartAudio();
 
-  // change mood
-  if (key === "1") setScene(0);
-  else if (key === "2") setScene(1);
-  else if (key === "3") setScene(2);
-  else if (key === "4") setScene(3);
-  else if (key === "5") setScene(4);
-  else if (key === "6") setScene(5);
-  else if (key === "7") setScene(6);
+  // change mood via server
+  if (key === "1") requestSetScene(0);
+  else if (key === "2") requestSetScene(1);
+  else if (key === "3") requestSetScene(2);
+  else if (key === "4") requestSetScene(3);
+  else if (key === "5") requestSetScene(4);
+  else if (key === "6") requestSetScene(5);
+  else if (key === "7") requestSetScene(6);
 
-  // play / pause
+  // play / pause (shared)
   else if (key === " ") {
-    if (!currentTrack) {
-      switchAudioToCurrentScene();
-    } else {
-      if (currentTrack.isPlaying()) currentTrack.pause();
-      else currentTrack.play();
-    }
+    requestTogglePlay();
+    return false;
   }
 
-  // track selection in current mood (C/Z/X)
+  // track selection in current mood (shared)
   else if (key === "c" || key === "C") {
     jumpToTrackInCurrentMood(0);
   } else if (key === "z" || key === "Z") {
@@ -566,11 +661,11 @@ function keyPressed() {
   }
 }
 
-// right click = next mood
+// right click = next mood (shared)
 function mousePressed() {
   userStartAudio();
 
   if (mouseButton === RIGHT) {
-    setScene(currentSceneIndex + 1);
+    requestNextScene();
   }
 }
