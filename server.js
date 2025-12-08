@@ -1,5 +1,5 @@
-// sever.js
-// REALTIME MUSIC ORB SERVER (NO SUBFOLDERS, USING "ws")
+// server.js
+// REALTIME MUSIC ORB SERVER (NO SUBFOLDERS)
 
 const express = require("express");
 const http = require("http");
@@ -9,23 +9,20 @@ const path = require("path");
 const app = express();
 const server = http.createServer(app);
 
-// Serve all files in this folder (index.html, sketch.js, .mp3, etc.)
+// Serve all files in this folder (index.html, sketch.js, mp3, etc.)
 app.use(express.static(__dirname));
 
-// WebSocket server
-const wss = new WebSocket.Server({ server });
+// WebSocket server on /ws (works locally + on Render)
+const wss = new WebSocket.Server({ server, path: "/ws" });
 
 // Shared state for all users
-// sceneIndex: which mood (0–6)
-// trackIndex: which track inside that mood (if you add more later)
-// playing: is music playing or not
 let sharedState = {
-  sceneIndex: 0,
-  trackIndex: 0,
-  playing: false,
+  sceneIndex: 0,   // which mood (0–6)
+  trackIndex: 0,   // which track inside that mood
+  playing: false,  // play / pause
 };
 
-// Broadcast full state to all connected clients
+// Broadcast to all connected clients
 function broadcastState() {
   const msg = JSON.stringify(sharedState);
   wss.clients.forEach((client) => {
@@ -35,11 +32,10 @@ function broadcastState() {
   });
 }
 
-// Handle new clients
 wss.on("connection", (ws) => {
   console.log("Client connected");
 
-  // Send current state to new client
+  // send current state to new client
   ws.send(JSON.stringify(sharedState));
 
   ws.on("message", (message) => {
@@ -57,20 +53,17 @@ wss.on("connection", (ws) => {
       if (idx < 0) idx = 0;
       if (idx >= maxScenes) idx = maxScenes - 1;
       sharedState.sceneIndex = idx;
-      // optional: reset track when mood changes
       sharedState.trackIndex = 0;
       broadcastState();
     } else if (data.type === "nextScene") {
-      const maxScenes = 7; // 0..6
+      const maxScenes = 7;
       sharedState.sceneIndex = (sharedState.sceneIndex + 1) % maxScenes;
       sharedState.trackIndex = 0;
       broadcastState();
     } else if (data.type === "setTrack") {
       let idx = Math.floor(data.trackIndex ?? 0);
       if (idx < 0) idx = 0;
-      // you can clamp here later if a mood has more tracks
       sharedState.trackIndex = idx;
-      // when changing track, start playing
       sharedState.playing = true;
       broadcastState();
     } else if (data.type === "togglePlay") {
@@ -86,8 +79,9 @@ wss.on("connection", (ws) => {
   });
 });
 
+// IMPORTANT: Render sets PORT in process.env.PORT
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Open http://localhost:${PORT} in your browser`);
 });
