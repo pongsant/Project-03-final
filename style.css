@@ -6,17 +6,16 @@
 }
 
 /* Soft modern font */
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
 
 html,
 body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
-    "Inter", sans-serif;
-  background: radial-gradient(circle at top, #1f2340 0%, #070814 60%, #000000 100%);
-  color: #f5f5f7;
+  font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  background: radial-gradient(circle at top, #f7f2ff 0%, #e3efff 40%, #f0f7ff 100%);
+  color: #27212F;
 }
 
 /* Let the p5 canvas fill the screen behind everything */
@@ -27,16 +26,16 @@ body > canvas {
   z-index: 0;
 }
 
-/* Title / instructions box – top left */
+/* Title / instructions box */
 .overlay {
   position: fixed;
   left: 24px;
   top: 24px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: rgba(6, 6, 14, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(18, 12, 40, 0.07);
+  box-shadow: 0 18px 45px rgba(46, 30, 120, 0.22);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   z-index: 10;
@@ -55,16 +54,16 @@ body > canvas {
   opacity: 0.85;
 }
 
-/* Mood legend box – bottom right */
+/* Mood legend box in the corner */
 .legend {
   position: fixed;
   right: 24px;
   bottom: 24px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: rgba(6, 6, 14, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(18, 12, 40, 0.08);
+  box-shadow: 0 18px 45px rgba(46, 30, 120, 0.28);
   pointer-events: auto;
   z-index: 10;
   max-width: 260px;
@@ -85,7 +84,7 @@ body > canvas {
   margin-bottom: 8px;
 }
 
-.legend ul {
+.legend-list {
   list-style: none;
 }
 
@@ -106,7 +105,7 @@ body > canvas {
 
 .legend-item:hover {
   opacity: 1;
-  transform: translateX(-2px);
+  transform: translateX(0px);
 }
 
 .legend-item span:last-child {
@@ -119,7 +118,7 @@ body > canvas {
 }
 
 .legend-item.is-active span:last-child {
-  color: #ffffff;
+  color: #171321;
   font-weight: 600;
 }
 
@@ -128,39 +127,39 @@ body > canvas {
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(18, 12, 40, 0.16);
 }
 
-/* Match your mood colors */
+/* Match mood colors from sketch.js */
 .swatch--calm {
-  background: #167ef4;
+  background: #70a4ff;
 }
 
 .swatch--happy {
-  background: #f0b30d;
+  background: #ffd75a;
 }
 
 .swatch--love {
-  background: #f66092;
+  background: #ff89b5;
 }
 
 .swatch--dream {
-  background: #ad88f7;
+  background: #c8a4ff;
 }
 
 .swatch--hope {
-  background: #8af9b7;
+  background: #8fffd1;
 }
 
 .swatch--nostalgia {
-  background: #f89a55;
+  background: #ffb27a;
 }
 
 .swatch--alone {
-  background: #3b4bfa;
+  background: #7a8bff;
 }
 
-/* Small screen tweak */
+/* Small screen tweaks */
 @media (max-width: 640px) {
   .legend {
     max-width: 220px;

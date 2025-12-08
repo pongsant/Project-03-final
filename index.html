@@ -1,57 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Mood Orb – Collaborative Music</title>
-    <link rel="stylesheet" href="style.css" />
+<head>
+  <meta charset="UTF-8" />
+  <title>MUSICOrb Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
 
-    <!-- p5.js + p5.sound from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/addons/p5.sound.min.js"></script>
-    <script src="sketch.js" defer></script>
-  </head>
-  <body>
-    <div class="overlay">
-      <h1>Mood Orb</h1>
-      <p class="instructions">
-        Open this link on many devices.  
-        Whoever changes the mood or track controls <strong>everyone’s</strong> music in real time.
-        <br />
-        <span class="keys">
-          1–7 = moods · Space = play / pause · C/Z/X = track 1/2/3 · Right-click = next mood
-        </span>
-      </p>
+  <!-- p5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <!-- p5.sound -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+</head>
+<body>
+  <!-- Title + instructions -->
+  <div class="overlay">
+    <h1>MUSIC Orb</h1>
+    <p>
+      Drag to orbit · Scroll to zoom · Right-click = next mood<br />
+      1–7 = moods · Space = play / pause · C/Z/X = tracks 1/2/3
+    </p>
+  </div>
 
-      <div class="legend">
-        <div class="legend-item" data-index="0">
-          <span class="dot love"></span> Love
-        </div>
-        <div class="legend-item" data-index="1">
-          <span class="dot nostalgia"></span> Nostalgia
-        </div>
-        <div class="legend-item" data-index="2">
-          <span class="dot calm"></span> Calm
-        </div>
-        <div class="legend-item" data-index="3">
-          <span class="dot dream"></span> Dream
-        </div>
-        <div class="legend-item" data-index="4">
-          <span class="dot happy"></span> Happy
-        </div>
-        <div class="legend-item" data-index="5">
-          <span class="dot hope"></span> Hope
-        </div>
-        <div class="legend-item" data-index="6">
-          <span class="dot alone"></span> Alone
-        </div>
-      </div>
+  <!-- Mood legend box -->
+  <div class="legend">
+    <h2>Mood Colors</h2>
+    <p>Click a color to change the orb and music.</p>
+    <ul class="legend-list">
+      <li class="legend-item" data-index="0">
+        <span class="swatch swatch--calm"></span>
+        <span>Calm</span>
+      </li>
+      <li class="legend-item" data-index="1">
+        <span class="swatch swatch--happy"></span>
+        <span>Happy</span>
+      </li>
+      <li class="legend-item" data-index="2">
+        <span class="swatch swatch--love"></span>
+        <span>Love</span>
+      </li>
+      <li class="legend-item" data-index="3">
+        <span class="swatch swatch--dream"></span>
+        <span>Dream</span>
+      </li>
+      <li class="legend-item" data-index="4">
+        <span class="swatch swatch--hope"></span>
+        <span>Hope</span>
+      </li>
+      <li class="legend-item" data-index="5">
+        <span class="swatch swatch--nostalgia"></span>
+        <span>Nostalgia</span>
+      </li>
+      <li class="legend-item" data-index="6">
+        <span class="swatch swatch--alone"></span>
+        <span>Alone</span>
+      </li>
+    </ul>
+  </div>
 
-      <div class="mood-description">
-        <div class="mood-name">Love</div>
-        <div class="mood-text">
-          Soft pink, slow movement – like a jelly heart floating in space.
-        </div>
-      </div>
-    </div>
-  </body>
+  <!-- p5 sketch -->
+  <script src="sketch.js"></script>
+</body>
 </html>
