@@ -11,142 +11,261 @@
 
 // ---------- GLOBALS ----------
 
-let scenes;
+// mood definitions (colors + description + track filenames)
+let scenes = [
+  {
+    name: "Calm",
+    orbColor: "#167ef4",
+    lightColor: "#6bd9ff",
+    bgTop: "#050616",
+    bgBottom: "#0f1a42",
+    tracks: ["calm.mp3"]
+  },
+  {
+    name: "Happy",
+    orbColor: "#f0b30d",
+    lightColor: "#ffe15c",
+    bgTop: "#1e1020",
+    bgBottom: "#402214",
+    tracks: ["happy.mp3"]
+  },
+  {
+    name: "Love",
+    orbColor: "#f66092",
+    lightColor: "#ffb3cf",
+    bgTop: "#1a0614",
+    bgBottom: "#401429",
+    tracks: ["love.mp3"]
+  },
+  {
+    name: "Dream",
+    orbColor: "#ad88f7",
+    lightColor: "#d9c6ff",
+    bgTop: "#08041a",
+    bgBottom: "#2a1b5f",
+    tracks: ["dream.mp3"]
+  },
+  {
+    name: "Hope",
+    orbColor: "#8af9b7",
+    lightColor: "#bfffe0",
+    bgTop: "#031a14",
+    bgBottom: "#134834",
+    tracks: ["hope.mp3"]
+  },
+  {
+    name: "Nostalgia",
+    orbColor: "#f89a55",
+    lightColor: "#ffd1a0",
+    bgTop: "#1a0e05",
+    bgBottom: "#462511",
+    tracks: ["nostalgia.mp3"]
+  },
+  {
+    name: "Alone",
+    orbColor: "#3b4bfa",
+    lightColor: "#b0b3ff",
+    bgTop: "#020514",
+    bgBottom: "#0f153d",
+    tracks: ["alone.mp3"]
+  }
+];
+
 let currentSceneIndex = 0;
-
-let baseRadius;
-
-// sound: tracks[moodIndex][trackIndex]
-let tracks = [];
-let amplitude;
-let fft;
-let currentTrack = null;
 let currentTrackIndex = 0;
 
+// sounds: scenes[i].soundFiles[j]
+let scenesSounds = [];
+
+// audio analysis
+let amp;
+let smoothedLevel = 0;
+
 // background colors
-let bgTopCurrent, bgBottomCurrent;
-let bgTopTarget, bgBottomTarget;
+let bgTopCurrent, bgTopTarget;
+let bgBottomCurrent, bgBottomTarget;
 
-// smoothed chaos so animation is not stressful
-let chaosSmoothed = 0.1;
+// orb animation
+let baseRotation = 0;
+let noiseOffset = 0;
 
-// “beat” and “vibe” smoothing
-let beatSmoothed = 0;  // small accents from drums
-let vibeSmoothed = 0;  // main smooth movement from song
+// camera
+let isDragging = false;
+let lastMouseX, lastMouseY;
+let camRotX = -0.3;
+let camRotY = 0.4;
+let camDistance = 420;
 
-// ---------- SETUP ----------
+// current playing track
+let currentTrack = null;
 
+/* -------------------------------------------------- */
+/* preload                                             */
+/* -------------------------------------------------- */
+function preload() {
+  scenesSounds = scenes.map((scene) =>
+    scene.tracks.map((file) => loadSound(file))
+  );
+}
+
+/* -------------------------------------------------- */
+/* setup                                               */
+/* -------------------------------------------------- */
 function setup() {
   const cnv = createCanvas(windowWidth, windowHeight, WEBGL);
   pixelDensity(1);
+  cnv.elt.oncontextmenu = () => false; // disable right-click menu on canvas
 
-  // disable default right-click menu on the canvas
-  cnv.elt.oncontextmenu = () => false;
+  amp = new p5.Amplitude();
+  amp.smooth(0.9);
 
-  // smaller orb
-  baseRadius = min(windowWidth, windowHeight) * 0.18;
-
-  // moods
-  scenes = [
-    {
-      name: "Calm",
-      tagline: "soft blue, quiet breathing",
-      orbColor: "#70a4ff",
-      lightColor: "#cfe0ff",
-      audioFiles: ["calm.mp3"]
-    },
-    {
-      name: "Happy",
-      tagline: "warm yellow, gentle joy",
-      orbColor: "#ffd75a",
-      lightColor: "#fff2b8",
-      audioFiles: ["happy.mp3"]
-    },
-    {
-      name: "Love",
-      tagline: "soft pink glow",
-      orbColor: "#ff82b2",
-      lightColor: "#ffc7dc",
-      audioFiles: ["love.mp3"]
-    },
-    {
-      name: "Dream",
-      tagline: "lavender haze, drifting",
-      orbColor: "#c8a4ff",
-      lightColor: "#e8d7ff",
-      audioFiles: ["dream.mp3"]
-    },
-    {
-      name: "Hope",
-      tagline: "fresh mint, quiet growth",
-      orbColor: "#8fffd1",
-      lightColor: "#caffec",
-      audioFiles: ["hope.mp3"]
-    },
-    {
-      name: "Nostalgia",
-      tagline: "peach glow, far memories",
-      orbColor: "#ffb27a",
-      lightColor: "#ffd7bb",
-      audioFiles: ["nostalgia.mp3"]
-    },
-    {
-      name: "Alone",
-      tagline: "blue-violet, soft sadness",
-      orbColor: "#7a8bff",
-      lightColor: "#c8cdff",
-      audioFiles: ["alone.mp3"]
-    }
-  ];
-
-  // background starting + target colors (bright pastel)
-  bgTopCurrent = color("#f7f2ff");
-  bgBottomCurrent = color("#e3efff");
-
+  // initial background colors
   const s = scenes[currentSceneIndex];
-  bgTopTarget = color(s.lightColor);
-  bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
+  bgTopCurrent = color(s.bgTop);
+  bgBottomCurrent = color(s.bgBottom);
+  bgTopTarget = color(s.bgTop);
+  bgBottomTarget = color(s.bgBottom);
 
-  // amplitude analyzer (smooth)
-  amplitude = new p5.Amplitude();
-  amplitude.smooth(0.9);
+  switchAudioToCurrentScene();
+  updateLegendActive();
 
-  // FFT for spectrum (vibe + light beat detection)
-  fft = new p5.FFT(0.8, 1024);
-
-  // load all audio files
-  tracks = [];
-  for (let i = 0; i < scenes.length; i++) {
-    tracks[i] = [];
-    for (let j = 0; j < scenes[i].audioFiles.length; j++) {
-      const filePath = scenes[i].audioFiles[j]; // same folder as sketch.js
-      loadSound(
-        filePath,
-        (snd) => {
-          tracks[i][j] = snd;
-          console.log("Loaded:", filePath);
-        },
-        (err) => {
-          console.warn("Failed to load:", filePath);
-          tracks[i][j] = null;
-        }
-      );
-    }
-  }
-
-  setupLegendClicks();
-  cursor(ARROW);
   textFont("Space Grotesk, system-ui, sans-serif");
 }
 
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight, WEBGL);
-  baseRadius = min(windowWidth, windowHeight) * 0.18;
+/* -------------------------------------------------- */
+/* draw                                                */
+/* -------------------------------------------------- */
+function draw() {
+  // draw gradient background
+  drawBrightBackground();
+
+  // camera control
+  push();
+  if (isDragging) {
+    const dx = (mouseX - lastMouseX) * 0.01;
+    const dy = (mouseY - lastMouseY) * 0.01;
+    camRotY += dx;
+    camRotX += dy;
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+  }
+
+  rotateX(camRotX);
+  rotateY(camRotY);
+  translate(0, 0, -camDistance);
+
+  const scene = scenes[currentSceneIndex];
+  const orbCol = color(scene.orbColor);
+  const lightCol = color(scene.lightColor);
+
+  // lights
+  ambientLight(20);
+  directionalLight(
+    red(lightCol) * 0.9,
+    green(lightCol) * 0.9,
+    blue(lightCol) * 0.9,
+    -0.3,
+    -0.5,
+    -1
+  );
+  pointLight(
+    red(lightCol),
+    green(lightCol),
+    blue(lightCol),
+    0,
+    -150,
+    200
+  );
+
+  // audio level
+  const level = amp.getLevel();
+  smoothedLevel = lerp(smoothedLevel, level, 0.18);
+
+  baseRotation += 0.01 + smoothedLevel * 0.12;
+  noiseOffset += 0.01;
+
+  // soft aura under orb
+  push();
+  rotateX(HALF_PI);
+  noStroke();
+
+  let auraSize = 260 + smoothedLevel * 850;
+  for (let i = 5; i >= 1; i--) {
+    const alpha = map(i, 1, 5, 85, 0);
+    fill(
+      red(orbCol),
+      green(orbCol),
+      blue(orbCol),
+      alpha
+    );
+    ellipse(0, 0, auraSize * (i / 5), auraSize * 0.36 * (i / 5));
+  }
+  pop();
+
+  // orb – a jelly-like deformed sphere
+  push();
+  translate(0, -40, 0);
+  rotateY(baseRotation);
+  rotateX(baseRotation * 0.35);
+
+  const baseRadius = 95;
+  const spikeAmount = 55 * (0.4 + smoothedLevel * 3.0);
+
+  noStroke();
+  ambientMaterial(
+    red(orbCol) * 1.1,
+    green(orbCol) * 1.1,
+    blue(orbCol) * 1.1
+  );
+
+  const detail = 40;
+  beginShape(TRIANGLE_STRIP);
+  for (let i = 0; i <= detail; i++) {
+    const lat1 = map(i, 0, detail, -HALF_PI, HALF_PI);
+    const lat2 = map(i + 1, 0, detail, -HALF_PI, HALF_PI);
+
+    for (let j = 0; j <= detail; j++) {
+      const lon = map(j, 0, detail, 0, TWO_PI);
+
+      // first row
+      let x1 = cos(lat1) * cos(lon);
+      let y1 = sin(lat1);
+      let z1 = cos(lat1) * sin(lon);
+
+      let n1 = noise(
+        x1 * 1.3 + noiseOffset,
+        y1 * 1.3 + noiseOffset,
+        z1 * 1.3 + noiseOffset
+      );
+      let r1 = baseRadius + spikeAmount * (n1 - 0.4);
+
+      vertex(x1 * r1, y1 * r1, z1 * r1);
+
+      // second row
+      let x2 = cos(lat2) * cos(lon);
+      let y2 = sin(lat2);
+      let z2 = cos(lat2) * sin(lon);
+
+      let n2 = noise(
+        x2 * 1.3 + noiseOffset,
+        y2 * 1.3 + noiseOffset,
+        z2 * 1.3 + noiseOffset
+      );
+      let r2 = baseRadius + spikeAmount * (n2 - 0.4);
+
+      vertex(x2 * r2, y2 * r2, z2 * r2);
+    }
+  }
+  endShape();
+
+  pop(); // orb
+  pop(); // camera
 }
 
-// ---------- SIMPLE BRIGHT BACKGROUND (OLD VERSION STYLE) ----------
-
-function drawBrightBackground(levelBoost) {
+/* -------------------------------------------------- */
+/* background gradient                                */
+/* -------------------------------------------------- */
+function drawBrightBackground() {
   push();
   resetMatrix();
   translate(-width / 2, -height / 2);
@@ -155,385 +274,111 @@ function drawBrightBackground(levelBoost) {
   bgTopCurrent = lerpColor(bgTopCurrent, bgTopTarget, 0.04);
   bgBottomCurrent = lerpColor(bgBottomCurrent, bgBottomTarget, 0.04);
 
-  let steps = 140;
-  let t = millis() * 0.0009; // slow shimmer
-
+  const steps = 140;
   noStroke();
   for (let i = 0; i < steps; i++) {
-    let amt = i / (steps - 1);
-    let c = lerpColor(bgTopCurrent, bgBottomCurrent, amt);
-
-    // subtle shimmer
-    let pulse = sin(amt * PI * 2.0 + t * 4.0) * 6 * levelBoost;
-    let r = red(c) + pulse;
-    let g = green(c) + pulse * 0.7;
-    let b = blue(c) + pulse * 0.5;
-
-    fill(constrain(r, 0, 255), constrain(g, 0, 255), constrain(b, 0, 255));
-    let y = (i / steps) * height;
-    rect(0, y, width, height / steps + 3);
+    const amt = i / (steps - 1);
+    const c = lerpColor(bgTopCurrent, bgBottomCurrent, amt);
+    fill(c);
+    rect(0, (height * i) / steps, width, height / steps + 1);
   }
 
   pop();
 }
 
-// ---------- MAIN DRAW ----------
-
-function draw() {
-  if (!scenes) return;
-
-  const scene = scenes[currentSceneIndex];
-
-  // overall loudness
-  let level = amplitude ? amplitude.getLevel() : 0;
-  let levelBoost = constrain(map(level, 0, 0.3, 0, 1), 0, 1);
-
-  // spectrum
-  let spectrum = fft.analyze();
-
-  // low = drums, mid/high = vibe / harmony / brightness
-  let lowEnergy = fft.getEnergy(40, 180);      // kick-ish
-  let midEnergy = fft.getEnergy(200, 2000);    // body of song
-  let highEnergy = fft.getEnergy(2000, 8000);  // air / brightness
-
-  // light beat (small effect)
-  let rawBeat = max(lowEnergy, midEnergy) / 255.0;
-  rawBeat = constrain((rawBeat - 0.3) * 1.7, 0, 1);
-  beatSmoothed = lerp(beatSmoothed, rawBeat, 0.2);
-  let beatPulse = beatSmoothed;
-
-  // vibe = main driver (mid + high)
-  let rawVibe = (midEnergy * 0.6 + highEnergy * 0.4) / 255.0;
-  rawVibe = constrain(rawVibe, 0, 1);
-  vibeSmoothed = lerp(vibeSmoothed, rawVibe, 0.15);
-  let vibe = vibeSmoothed;
-
-  // chaosTarget = mostly level + vibe, plus small beat spice
-  let chaosTarget =
-    constrain(map(level, 0, 0.3, 0.05, 0.55), 0.05, 0.55) +
-    vibe * 0.35 +
-    beatPulse * 0.15;
-  chaosTarget = constrain(chaosTarget, 0.05, 0.85);
-
-  chaosSmoothed = lerp(chaosSmoothed, chaosTarget, 0.06);
-  let chaos = chaosSmoothed;
-
-  // SIMPLE background (old style)
-  drawBrightBackground(levelBoost);
-
-  // 3D orb / blob
-  push();
-  orbitControl(0.7, 0.7, 0.3);
-  drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse);
-  pop();
-
-  // HUD
-  drawHUD(scene, chaos, level, vibe, beatPulse);
-}
-
-// ---------- ORB – VIBE-REACTIVE SMOOTH BLOB ----------
-
-function drawEnergyOrb(scene, levelBoost, chaos, vibe, beatPulse) {
-  const t = millis() * 0.001;
-
-  let orbCol = color(scene.orbColor);
-  let lightCol = color(scene.lightColor);
-
-  let baseR = baseRadius;
-
-  // deformation amount – soft but expressive
-  let deformAmount = map(chaos, 0.05, 0.85, 0.01, 0.24);
-
-  // breathing squash:
-  //   vibe = smooth breathing
-  //   beat = tiny quick flick
-  let breatheBase = sin(t * (0.7 + vibe * 0.9)) * 0.18 * (0.3 + chaos);
-  let drumBreathe = beatPulse * 0.15;
-  let breathe = breatheBase + drumBreathe;
-
-  let squashY = 1.0 + breathe;
-  let squashX = 1.0 - breathe * 0.45;
-  let squashZ = 1.0 - breathe * 0.5;
-
-  push();
-
-  // ---------- ORIENTATION RINGS (FOLLOW VIBE) ----------
-  push();
-  blendMode(ADD);
-  noFill();
-
-  let ringBase = lerpColor(color(255), orbCol, 0.5);
-  let ringAlpha = 55 + 70 * vibe + 35 * levelBoost + 30 * beatPulse;
-  ringBase.setAlpha(ringAlpha);
-  stroke(ringBase);
-
-  let ringThickness = baseR * (0.018 + vibe * 0.02);
-  strokeWeight(1.2 + vibe * 0.8);
-
-  // equator ring
-  torus(baseR * (0.95 + vibe * 0.08), ringThickness, 60, 16);
-
-  // tilted ring 1
-  rotateX(PI / 3);
-  torus(baseR * (0.85 + vibe * 0.06), ringThickness * 0.9, 60, 16);
-
-  // tilted ring 2
-  rotateY(PI / 3);
-  torus(baseR * (0.8 + vibe * 0.04), ringThickness * 0.85, 60, 16);
-
-  blendMode(BLEND);
-  pop();
-
-  // ---------- ORB BODY / BLOB ----------
-
-  blendMode(ADD);
-
-  // rotation:
-  //   vibe = main rotation speed
-  //   beat = small twist
-  let drumTwist = beatPulse * 0.25;
-  rotateY(t * (0.12 + vibe * 0.25) + drumTwist * 0.3);
-  rotateX(sin(t * (0.25 + vibe * 0.4)) * 0.28 + drumTwist * 0.2);
-
-  scale(squashX, squashY, squashZ);
-
-  // outer halo, mood-colored
-  noStroke();
-  let haloCol = lerpColor(lightCol, orbCol, 0.35);
-  haloCol.setAlpha(40 + levelBoost * 60 + vibe * 50 + beatPulse * 35);
-  fill(haloCol);
-  sphere(baseR * (1.2 + vibe * 0.12), 40, 32);
-
-  // outer glass shell
-  let shellCol = lerpColor(lightCol, color(255), 0.6);
-  shellCol.setAlpha(120 + levelBoost * 60 + vibe * 40);
-  fill(shellCol);
-  sphere(baseR * 0.98, 40, 32);
-
-  // ---- mood-based iridescent colors (changes with mood) ----
-  let cA = lerpColor(lightCol, orbCol, 0.15);
-  let cB = lerpColor(lightCol, orbCol, 0.7);
-  let cC = lerpColor(orbCol, color(255), 0.35);
-
-  // shapeless “surface” made of points
-  let latSteps = 44;
-  let lonSteps = 88;
-  let noiseScale = 1.2;
-  let flowSpeed = 0.35 + vibe * 0.7; // vibe = main flow speed
-
-  for (let i = 0; i <= latSteps; i++) {
-    let v = i / latSteps;
-    let theta = v * PI;
-
-    beginShape(POINTS);
-    for (let j = 0; j < lonSteps; j++) {
-      let u = j / lonSteps;
-      let phi = u * TWO_PI;
-
-      let sx = sin(theta) * cos(phi);
-      let sy = cos(theta);
-      let sz = sin(theta) * sin(phi);
-
-      let n = noise(
-        sx * noiseScale + 10.0,
-        sy * noiseScale + 20.0,
-        sz * noiseScale + 30.0 + t * flowSpeed
-      );
-
-      let drumOffset = beatPulse * 0.22;
-      let offset = (n - 0.5) * 2.0 * deformAmount + drumOffset * (n - 0.3);
-      let r = baseR * (1.0 + offset);
-
-      let px = sx * r;
-      let py = sy * r;
-      let pz = sz * r;
-
-      // color bands: vibe affects how much they move
-      let band1 = sin(theta * (1.0 + vibe * 0.6) + t * 0.45);
-      let band2 = sin(phi * (2.0 + vibe * 0.8) - t * 0.3);
-      let mixAmt = (band1 * 0.4 + band2 * 0.6 + 2.0) * 0.25;
-      mixAmt = constrain(mixAmt, 0, 1);
-
-      let baseBand = lerpColor(cA, cB, mixAmt);
-      let accentBand = lerpColor(cC, orbCol, 0.5);
-      let col = lerpColor(baseBand, accentBand, 0.4 + 0.25 * n);
-
-      let edgeFade = pow(sin(theta), 0.7);
-      let alpha =
-        (80 + 100 * chaos + 40 * vibe + 30 * beatPulse) * edgeFade;
-      col.setAlpha(alpha);
-
-      stroke(col);
-      strokeWeight(0.8 + chaos * 0.4 + vibe * 0.3);
-      vertex(px, py, pz);
+/* -------------------------------------------------- */
+/* audio helpers                                      */
+/* -------------------------------------------------- */
+function switchAudioToCurrentScene() {
+  const moodIndex = currentSceneIndex;
+  const moodSounds = scenesSounds[moodIndex];
+  if (!moodSounds || moodSounds.length === 0) {
+    if (currentTrack && currentTrack.isPlaying()) {
+      currentTrack.stop();
     }
-    endShape();
+    currentTrack = null;
+    return;
   }
 
-  // inner luminous core
-  noStroke();
-  let coreCol = lerpColor(lightCol, color("#ffffff"), 0.7);
-  coreCol.setAlpha(215 + vibe * 30);
-  fill(coreCol);
-  sphere(baseR * 0.5, 36, 28);
+  if (currentTrackIndex < 0) currentTrackIndex = moodSounds.length - 1;
+  if (currentTrackIndex >= moodSounds.length) currentTrackIndex = 0;
 
-  // tiny highlight sun at bottom-right
-  push();
-  rotateY(0.55);
-  rotateX(0.38);
-  translate(0, baseR * 0.34, baseR * 0.12);
-  let sunCol = color(255, 245, 230);
-  sunCol.setAlpha(230 + beatPulse * 20);
-  fill(sunCol);
-  sphere(baseR * 0.17, 22, 16);
-  pop();
-
-  blendMode(BLEND);
-  pop();
-}
-
-// ---------- HUD / TEXT ----------
-
-function drawHUD(scene, chaos, level, vibe, beatPulse) {
-  push();
-  resetMatrix();
-  translate(-width / 2, -height / 2);
-
-  textAlign(LEFT, TOP);
-
-  // title
-  fill(25, 25, 35, 220);
-  textSize(20);
-  text(scene.name + " mood", 24, 24);
-
-  // tagline
-  fill(40, 40, 60, 210);
-  textSize(13);
-  text(scene.tagline, 24, 48);
-
-  // info
-  let yBase = height - 80;
-  textSize(11);
-  fill(50, 50, 70, 200);
-  text(
-    "Left drag: orbit · Scroll: zoom · Right click: next mood · 1–7: mood · Space: play/pause · C/Z/X: tracks",
-    24,
-    yBase
-  );
-
-  const moodTracks = tracks[currentSceneIndex];
-  let trackInfo = "";
-  if (moodTracks && moodTracks.length > 0) {
-    trackInfo = "Track " + (currentTrackIndex + 1) + " / " + moodTracks.length;
+  if (currentTrack && currentTrack.isPlaying()) {
+    currentTrack.stop();
   }
 
-  text(
-    trackInfo +
-      "   |   Chaos: " +
-      chaos.toFixed(2) +
-      "   Level: " +
-      level.toFixed(3) +
-      "   Vibe: " +
-      vibe.toFixed(2) +
-      "   Beat: " +
-      beatPulse.toFixed(2),
-    24,
-    yBase + 16
-  );
-
-  pop();
+  currentTrack = moodSounds[currentTrackIndex];
+  if (currentTrack) {
+    amp.setInput(currentTrack);
+  }
 }
 
-// ---------- MOOD / AUDIO HELPERS ----------
+function jumpToTrackInCurrentMood(targetIndex) {
+  const moodIndex = currentSceneIndex;
+  const moodSounds = scenesSounds[moodIndex];
+  if (!moodSounds || moodSounds.length === 0) return;
 
+  let idx = targetIndex;
+  if (idx < 0) idx = moodSounds.length - 1;
+  if (idx >= moodSounds.length) idx = 0;
+
+  if (currentTrack && currentTrack.isPlaying()) {
+    currentTrack.stop();
+  }
+
+  currentTrackIndex = idx;
+  currentTrack = moodSounds[currentTrackIndex];
+  amp.setInput(currentTrack);
+  currentTrack.play();
+}
+
+/* -------------------------------------------------- */
+/* scene switching                                    */
+/* -------------------------------------------------- */
 function setScene(index) {
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
 
-  bgTopTarget = color(s.lightColor);
-  bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
+  bgTopTarget = color(s.bgTop);
+  bgBottomTarget = color(s.bgBottom);
 
   currentTrackIndex = 0;
   updateLegendActive();
   switchAudioToCurrentScene();
 }
 
-function switchAudioToCurrentScene() {
-  const mi = currentSceneIndex;
-  const moodTracks = tracks[mi];
-  const totalTracks = moodTracks ? moodTracks.length : 0;
-
-  if (!totalTracks) {
-    console.warn("No tracks loaded for mood:", mi);
-    currentTrack = null;
-    return;
-  }
-
-  if (currentTrackIndex < 0) currentTrackIndex = totalTracks - 1;
-  if (currentTrackIndex >= totalTracks) currentTrackIndex = 0;
-
-  if (currentTrack && currentTrack.isPlaying()) {
-    currentTrack.stop();
-  }
-
-  currentTrack = moodTracks[currentTrackIndex];
-
-  if (currentTrack) {
-    currentTrack.loop();
-    amplitude.setInput(currentTrack);
-    fft.setInput(currentTrack);
-  } else {
-    console.warn("Track not loaded for mood:", mi, "track:", currentTrackIndex);
-  }
+/* -------------------------------------------------- */
+/* legend UI                                          */
+/* -------------------------------------------------- */
+function updateLegendActive() {
+  const items = document.querySelectorAll(".legend-item");
+  if (!items) return;
+  items.forEach((li) => {
+    const idx = parseInt(li.dataset.index, 10);
+    li.classList.toggle("is-active", idx === currentSceneIndex);
+  });
 }
-
-// choose track index in current mood (0,1,2)
-function jumpToTrackInCurrentMood(targetIndex) {
-  const mi = currentSceneIndex;
-  const moodTracks = tracks[mi];
-  const totalTracks = moodTracks ? moodTracks.length : 0;
-  if (!totalTracks) return;
-
-  let idx = targetIndex;
-  if (idx < 0) idx = 0;
-  if (idx >= totalTracks) idx = totalTracks - 1;
-
-  currentTrackIndex = idx;
-  switchAudioToCurrentScene();
-}
-
-// ---------- LEGEND CLICKS (HTML) ----------
 
 function setupLegendClicks() {
   const items = document.querySelectorAll(".legend-item");
   if (!items) return;
 
-  items.forEach((item) => {
-    const idx = parseInt(item.dataset.index, 10);
-    item.addEventListener("click", () => {
+  items.forEach((li) => {
+    const idx = parseInt(li.dataset.index, 10);
+    li.addEventListener("click", () => {
       userStartAudio();
       setScene(idx);
     });
   });
-  updateLegendActive();
 }
 
-function updateLegendActive() {
-  const items = document.querySelectorAll(".legend-item");
-  if (!items) return;
+document.addEventListener("DOMContentLoaded", () => {
+  setupLegendClicks();
+});
 
-  items.forEach((item) => {
-    const idx = parseInt(item.dataset.index, 10);
-    if (idx === currentSceneIndex) {
-      item.classList.add("is-active");
-    } else {
-      item.classList.remove("is-active");
-    }
-  });
-}
-
-// ---------- INPUT HANDLERS ----------
-
+/* -------------------------------------------------- */
+/* input handlers                                     */
+/* -------------------------------------------------- */
 function keyPressed() {
   userStartAudio();
 
@@ -550,6 +395,7 @@ function keyPressed() {
   else if (key === " ") {
     if (!currentTrack) {
       switchAudioToCurrentScene();
+      if (currentTrack) currentTrack.play();
     } else {
       if (currentTrack.isPlaying()) currentTrack.pause();
       else currentTrack.play();
@@ -566,11 +412,33 @@ function keyPressed() {
   }
 }
 
-// right click = next mood
+// right click = next mood, left drag = orbit
 function mousePressed() {
   userStartAudio();
 
   if (mouseButton === RIGHT) {
     setScene(currentSceneIndex + 1);
+  } else if (mouseButton === LEFT) {
+    isDragging = true;
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
   }
+}
+
+function mouseReleased() {
+  if (mouseButton === LEFT) {
+    isDragging = false;
+  }
+}
+
+function mouseWheel(event) {
+  camDistance += event.delta * 0.4;
+  camDistance = constrain(camDistance, 260, 820);
+}
+
+/* -------------------------------------------------- */
+/* resize                                             */
+/* -------------------------------------------------- */
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight, WEBGL);
 }
