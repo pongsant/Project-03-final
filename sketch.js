@@ -1,7 +1,13 @@
-// DREAM ORB – ENERGY RING VERSION (2D)
-// 7 moods, each mood can have multiple songs.
-// Visual: single glowing wavy ring with a hole in the middle.
-// Colors change by mood + react softly to sound.
+// JELLY ORB – BRIGHT 3D MUSIC VISUALIZER (WEBGL)
+//
+// Controls:
+//  - Left drag: orbit around orb
+//  - Scroll: zoom
+//  - Right click: next mood
+//  - 1–7: pick mood
+//  - Space: play / pause
+//  - C / Z / X: tracks 1 / 2 / 3 in current mood
+//  - Click legend item (HTML .legend-item) to change mood
 
 // ---------- GLOBALS ----------
 
@@ -16,97 +22,81 @@ let amplitude;
 let currentTrack = null;
 let currentTrackIndex = 0;
 
-// background gradient
-let currentBgTop, currentBgBottom;
+// bright pastel background
+let bgTopCurrent, bgBottomCurrent;
 let bgTopTarget, bgBottomTarget;
-const baseBgTop = "#050710";
-const baseBgBottom = "#000000";
 
 // ---------- SETUP ----------
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  const cnv = createCanvas(windowWidth, windowHeight, WEBGL);
   pixelDensity(1);
+
+  // disable default right-click menu on the canvas
+  cnv.elt.oncontextmenu = () => false;
 
   baseRadius = min(windowWidth, windowHeight) * 0.22;
 
-  // 7 moods – playlists ready
+  // moods
   scenes = [
     {
       name: "Calm",
       tagline: "soft blue, quiet breathing",
-      orbColor: "#167ef4",
-      lightColor: "#76b0ff",
-      audioFiles: [
-        "calm.mp3",
-        // "calm2.mp3",
-      ]
+      orbColor: "#70a4ff",
+      lightColor: "#cfe0ff",
+      audioFiles: ["calm.mp3"]
     },
     {
       name: "Happy",
       tagline: "warm yellow, gentle joy",
-      orbColor: "#f0b30d",
-      lightColor: "#ffd45c",
-      audioFiles: [
-        "happy.mp3",
-        // "happy2.mp3",
-      ]
+      orbColor: "#ffd75a",
+      lightColor: "#fff2b8",
+      audioFiles: ["happy.mp3"]
     },
     {
       name: "Love",
-      tagline: "soft pink, slow glow",
-      orbColor: "#f66092",
-      lightColor: "#ff94b8",
-      audioFiles: [
-        "love.mp3",
-        // "love2.mp3",
-        // "love3.mp3",
-      ]
+      tagline: "soft pink glow",
+      orbColor: "#ff82b2",
+      lightColor: "#ffc7dc",
+      audioFiles: ["love.mp3"]
     },
     {
       name: "Dream",
       tagline: "lavender haze, drifting",
-      orbColor: "#ad88f7",
-      lightColor: "#c6a6ff",
-      audioFiles: [
-        "dream.mp3",
-      ]
+      orbColor: "#c8a4ff",
+      lightColor: "#e8d7ff",
+      audioFiles: ["dream.mp3"]
     },
     {
       name: "Hope",
-      tagline: "mint air, quiet growth",
-      orbColor: "#8af9b7",
-      lightColor: "#b6ffd3",
-      audioFiles: [
-        "hope.mp3",
-      ]
+      tagline: "fresh mint, quiet growth",
+      orbColor: "#8fffd1",
+      lightColor: "#caffec",
+      audioFiles: ["hope.mp3"]
     },
     {
       name: "Nostalgia",
       tagline: "peach glow, far memories",
-      orbColor: "#f88842",
-      lightColor: "#ffb06e",
-      audioFiles: [
-        "nostalgia.mp3",
-      ]
+      orbColor: "#ffb27a",
+      lightColor: "#ffd7bb",
+      audioFiles: ["nostalgia.mp3"]
     },
     {
       name: "Alone",
       tagline: "blue-violet, soft sadness",
-      orbColor: "#3b4bfa",
-      lightColor: "#8b97ff",
-      audioFiles: [
-        "alone.mp3",
-      ]
+      orbColor: "#7a8bff",
+      lightColor: "#c8cdff",
+      audioFiles: ["alone.mp3"]
     }
   ];
 
-  // background color state
+  // background starting + target colors (bright pastel)
+  bgTopCurrent = color("#f7f2ff");
+  bgBottomCurrent = color("#e3efff");
+
   const s = scenes[currentSceneIndex];
-  currentBgTop = color("#050710");
-  currentBgBottom = color("#000000");
-  bgTopTarget = makeBgTopForScene(s);
-  bgBottomTarget = makeBgBottomForScene(s);
+  bgTopTarget = color(s.lightColor);
+  bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
 
   // amplitude analyzer
   amplitude = new p5.Amplitude();
@@ -133,222 +123,237 @@ function setup() {
   }
 
   setupLegendClicks();
-  noCursor();
+  cursor(ARROW);
   textFont("Space Grotesk, system-ui, sans-serif");
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
+  resizeCanvas(windowWidth, windowHeight, WEBGL);
   baseRadius = min(windowWidth, windowHeight) * 0.22;
 }
 
-// ---------- BACKGROUND HELPERS ----------
+// ---------- BACKGROUND (BRIGHT + GLOW WAVES) ----------
 
-function makeBgTopForScene(scene) {
-  const baseTopCol = color(baseBgTop);
-  const orbCol = color(scene.orbColor);
-  return lerpColor(baseTopCol, orbCol, 0.35);
-}
+function drawBrightBackground(levelBoost) {
+  push();
+  resetMatrix();
+  translate(-width / 2, -height / 2);
 
-function makeBgBottomForScene(scene) {
-  const baseBottomCol = color(baseBgBottom);
-  const orbCol = color(scene.orbColor);
-  return lerpColor(baseBottomCol, orbCol, 0.2);
-}
+  // lerp towards target colors
+  bgTopCurrent = lerpColor(bgTopCurrent, bgTopTarget, 0.04);
+  bgBottomCurrent = lerpColor(bgBottomCurrent, bgBottomTarget, 0.04);
 
-function drawGradientBackground(levelBoost) {
-  // blend towards target
-  currentBgTop = lerpColor(currentBgTop, bgTopTarget, 0.04);
-  currentBgBottom = lerpColor(currentBgBottom, bgBottomTarget, 0.04);
+  let steps = 140;
+  let t = millis() * 0.0015;
 
-  let t = millis() * 0.0002;
-  let bands = 120;
   noStroke();
+  for (let i = 0; i < steps; i++) {
+    let amt = i / (steps - 1);
+    let c = lerpColor(bgTopCurrent, bgBottomCurrent, amt);
 
-  for (let i = 0; i <= bands; i++) {
-    let amt = i / bands;
-    let c = lerpColor(currentBgTop, currentBgBottom, amt);
+    // subtle shimmer like your first code
+    let pulse = sin(amt * PI * 3 + t) * 18 * levelBoost;
+    let r = red(c) + pulse;
+    let g = green(c) + pulse * 0.7;
+    let b = blue(c) + pulse * 0.5;
 
-    // tiny breathing brightness
-    let breathe = 6 * sin(t * 2 + amt * PI * 2) * levelBoost;
-    fill(
-      red(c) + breathe,
-      green(c) + breathe,
-      blue(c) + breathe
-    );
-
-    let y = amt * height;
-    rect(0, y, width, height / bands + 1);
+    fill(constrain(r, 0, 255), constrain(g, 0, 255), constrain(b, 0, 255));
+    let y = (i / steps) * height;
+    rect(0, y, width, height / steps + 3);
   }
+
+  pop();
 }
 
 // ---------- MAIN DRAW ----------
 
 function draw() {
+  if (!scenes) return;
+
   const scene = scenes[currentSceneIndex];
 
   let level = amplitude ? amplitude.getLevel() : 0;
   let levelBoost = constrain(map(level, 0, 0.3, 0, 1), 0, 1);
 
-  drawGradientBackground(levelBoost);
+  // background
+  drawBrightBackground(levelBoost);
 
+  // 3D orb
   push();
-  translate(width / 2, height / 2);
+  orbitControl(0.7, 0.7, 0.3);
   drawEnergyOrb(scene, levelBoost);
   pop();
 
+  // HUD
   drawHUD(scene);
 }
 
-// ---------- ENERGY ORB (RING) ----------
+// ---------- JELLY ORB WITH SOFT SHADOW ----------
 
 function drawEnergyOrb(scene, levelBoost) {
   const t = millis() * 0.001;
 
-  let baseR = baseRadius;
-  let noiseAmp = baseR * 0.18 * (0.4 + levelBoost * 0.9);
-  let steps = 220;
   let orbCol = color(scene.orbColor);
   let lightCol = color(scene.lightColor);
 
-  // soft outer glow (thicker, more transparent)
-  for (let layer = 0; layer < 3; layer++) {
-    let layerAlpha = 40 - layer * 10 + levelBoost * 25;
-    let weight = 12 - layer * 3;
+  let baseR = baseRadius;
 
-    stroke(
-      red(orbCol),
-      green(orbCol),
-      blue(orbCol),
-      layerAlpha
-    );
-    strokeWeight(weight);
-    noFill();
+  // how much the surface deforms (0 = perfect sphere, 1 = very blobby)
+  let deformAmount = map(levelBoost, 0, 1, 0.03, 0.25);
+  deformAmount = constrain(deformAmount, 0.03, 0.25);
 
-    beginShape();
-    for (let i = 0; i <= steps; i++) {
-      let ang = (TWO_PI * i) / steps;
-      let n = noise(
-        cos(ang) * 1.5 + t * 0.5,
-        sin(ang) * 1.5 + t * 0.5 + layer * 10
-      );
-      let offset = map(n, 0, 1, -noiseAmp, noiseAmp);
-      let r = baseR + offset;
+  // global jelly squash & stretch (soft wobble)
+  let squashY = 1.0 + 0.18 * levelBoost * sin(t * 2.0);
+  let squashX = 1.0 - 0.10 * levelBoost * sin(t * 2.0 + 1.2);
+  let squashZ = 1.0 - 0.10 * levelBoost * sin(t * 2.0 - 0.6);
 
-      let x = cos(ang) * r;
-      let y = sin(ang) * r;
-      vertex(x, y);
-    }
-    endShape();
-  }
+  push();
 
-  // bright inner edge
-  stroke(
-    red(lightCol),
-    green(lightCol),
-    blue(lightCol),
-    220
-  );
-  strokeWeight(4);
-  noFill();
-
-  beginShape();
-  for (let i = 0; i <= steps; i++) {
-    let ang = (TWO_PI * i) / steps;
-    let n = noise(
-      cos(ang) * 1.6 + t * 0.8,
-      sin(ang) * 1.6 + t * 0.8
-    );
-    let offset = map(n, 0, 1, -noiseAmp * 0.6, noiseAmp * 0.6);
-    let r = baseR + offset * (0.8 + levelBoost * 0.4);
-
-    let x = cos(ang) * r;
-    let y = sin(ang) * r;
-    vertex(x, y);
-  }
-  endShape();
-
-  // inner dark core so it feels like a hole
+  // --- SOFT SHADOW UNDER ORB (3D cue) ---
+  push();
+  blendMode(BLEND);
   noStroke();
-  let holeR = baseR * 0.6;
-  fill(0, 200);
-  circle(0, 0, holeR * 2);
 
-  // subtle tiny sparks in the ring
-  let sparkCount = 26;
-  for (let i = 0; i < sparkCount; i++) {
-    let ang = (TWO_PI * i) / sparkCount + t * 0.6;
-    let n = noise(
-      cos(ang) * 2.2 + 100,
-      sin(ang) * 2.2 + 200 + t
-    );
-    let offset = map(n, 0, 1, -noiseAmp * 0.4, noiseAmp * 0.4);
-    let r = baseR + offset;
+  // light colored shadow based on orb color
+  let shadowCol = lerpColor(color(0, 0, 0, 0), orbCol, 0.2);
+  shadowCol.setAlpha(80 + levelBoost * 40);
 
-    let x = cos(ang) * r;
-    let y = sin(ang) * r;
+  translate(0, baseR * 1.3, 0); // below orb
+  rotateX(HALF_PI);            // lay flat
+  fill(shadowCol);
+  ellipse(0, 0, baseR * 2.2, baseR * 1.4);
+  pop();
 
-    let s = 6 + levelBoost * 8;
-    fill(
-      red(lightCol),
-      green(lightCol),
-      blue(lightCol),
-      180
-    );
-    circle(x, y, s);
+  // --- ORB ITSELF ---
+  blendMode(ADD);
+
+  // slow rotation so it always feels alive
+  rotateY(t * 0.28);
+  rotateX(sin(t * 0.5) * 0.35);
+
+  // jelly squash
+  scale(squashX, squashY, squashZ);
+
+  // aura
+  noStroke();
+  let auraCol = lerpColor(lightCol, orbCol, 0.45);
+  auraCol.setAlpha(45 + levelBoost * 55);
+  fill(auraCol);
+  sphere(baseR * 1.4, 32, 24);
+
+  // jelly surface: soft noise-deformed sphere
+  let latSteps = 34;
+  let lonSteps = 68;
+  let noiseScale = 1.3;
+  let flowSpeed = 0.8;
+
+  for (let i = 0; i <= latSteps; i++) {
+    let v = i / latSteps;
+    let theta = v * PI; // 0..PI
+
+    for (let j = 0; j < lonSteps; j++) {
+      let u = j / lonSteps;
+      let phi = u * TWO_PI;
+
+      let sx = sin(theta) * cos(phi);
+      let sy = cos(theta);
+      let sz = sin(theta) * sin(phi);
+
+      let n = noise(
+        sx * noiseScale + 10.0,
+        sy * noiseScale + 20.0,
+        sz * noiseScale + 30.0 + t * flowSpeed
+      );
+
+      // center noise and use deformAmount
+      let offset = (n - 0.5) * 2.0 * deformAmount;
+      let r = baseR * (1.0 + offset);
+
+      let px = sx * r;
+      let py = sy * r;
+      let pz = sz * r;
+
+      // color: soft mix of light + orb color
+      let colMix = 0.35 + n * 0.65;
+      let c = lerpColor(lightCol, orbCol, colMix);
+      let alpha = 160 + levelBoost * 90 - v * 45;
+      c.setAlpha(constrain(alpha, 50, 255));
+
+      stroke(c);
+      let w = 2.0 - v * 0.9;
+      w *= 1.0 + levelBoost * 0.6;
+      strokeWeight(max(0.7, w));
+      point(px, py, pz);
+    }
   }
+
+  // inner core (round & soft)
+  noStroke();
+  let coreCol = lerpColor(lightCol, color("#ffffff"), 0.55);
+  coreCol.setAlpha(230);
+  fill(coreCol);
+  sphere(baseR * 0.45, 36, 28);
+
+  // tiny bright heart
+  let heartCol = color(255);
+  heartCol.setAlpha(255);
+  fill(heartCol);
+  sphere(baseR * 0.2, 24, 18);
+
+  blendMode(BLEND);
+  pop();
 }
 
-// ---------- HUD ----------
+// ---------- HUD / TEXT ----------
 
 function drawHUD(scene) {
+  push();
   resetMatrix();
-  textAlign(LEFT, BOTTOM);
+  translate(-width / 2, -height / 2);
 
-  // mood + tagline
-  fill(15, 15, 22, 220);
-  noStroke();
-  rect(18, height - 92, 260, 74, 16);
+  textAlign(LEFT, TOP);
 
-  fill(240);
-  textSize(16);
-  text(scene.name, 32, height - 54);
+  // title
+  fill(25, 25, 35, 220);
+  textSize(20);
+  text(scene.name, 24, 24);
 
-  textSize(12);
-  fill(190);
-  text(scene.tagline, 32, height - 36);
+  // tagline
+  fill(40, 40, 60, 210);
+  textSize(13);
+  text(scene.tagline, 24, 48);
+
+  // instructions (bottom-left)
+  let yBase = height - 70;
+  textSize(11);
+  fill(50, 50, 70, 200);
+  text(
+    "Left drag: orbit · Scroll: zoom · Right click: next mood · 1–7: mood · Space: play/pause · C/Z/X: tracks",
+    24,
+    yBase
+  );
 
   // track info
-  const mi = currentSceneIndex;
-  const totalTracks = tracks[mi] ? tracks[mi].length : 0;
-  if (totalTracks > 0) {
-    fill(170);
-    textSize(11);
+  const moodTracks = tracks[currentSceneIndex];
+  if (moodTracks && moodTracks.length > 0) {
     text(
-      "Track " + (currentTrackIndex + 1) + " / " + totalTracks,
-      32,
-      height - 20
+      "Track " + (currentTrackIndex + 1) + " / " + moodTracks.length,
+      24,
+      yBase + 16
     );
   }
 
-  // instructions
-  fill(255, 255, 255, 210);
-  textSize(10);
-  text(
-    "1–7: mood · C/Z/X: track 1/2/3 · Space: play/pause · click colors to change mood",
-    32,
-    height - 6
-  );
+  pop();
 }
 
-// ---------- INTERACTION: MOOD + TRACK ----------
+// ---------- MOOD / AUDIO HELPERS ----------
 
 function setScene(index) {
   currentSceneIndex = (index + scenes.length) % scenes.length;
   const s = scenes[currentSceneIndex];
 
-  bgTopTarget = makeBgTopForScene(s);
-  bgBottomTarget = makeBgBottomForScene(s);
+  bgTopTarget = color(s.lightColor);
+  bgBottomTarget = lerpColor(color(s.orbColor), color("#ffffff"), 0.6);
 
   currentTrackIndex = 0;
   updateLegendActive();
@@ -383,8 +388,7 @@ function switchAudioToCurrentScene() {
   }
 }
 
-// jump to a specific track index inside the current mood
-// 0 = first track, 1 = second, 2 = third, etc.
+// choose track index in current mood (0,1,2)
 function jumpToTrackInCurrentMood(targetIndex) {
   const mi = currentSceneIndex;
   const moodTracks = tracks[mi];
@@ -403,6 +407,8 @@ function jumpToTrackInCurrentMood(targetIndex) {
 
 function setupLegendClicks() {
   const items = document.querySelectorAll(".legend-item");
+  if (!items) return;
+
   items.forEach((item) => {
     const idx = parseInt(item.dataset.index, 10);
     item.addEventListener("click", () => {
@@ -415,6 +421,8 @@ function setupLegendClicks() {
 
 function updateLegendActive() {
   const items = document.querySelectorAll(".legend-item");
+  if (!items) return;
+
   items.forEach((item) => {
     const idx = parseInt(item.dataset.index, 10);
     if (idx === currentSceneIndex) {
@@ -441,11 +449,15 @@ function keyPressed() {
 
   // play / pause
   else if (key === " ") {
-    togglePlayPause();
+    if (!currentTrack) {
+      switchAudioToCurrentScene();
+    } else {
+      if (currentTrack.isPlaying()) currentTrack.pause();
+      else currentTrack.play();
+    }
   }
 
-  // inside current mood: choose track
-  // C = track 1 (index 0), Z = track 2 (index 1), X = track 3 (index 2)
+  // track selection in current mood
   else if (key === "c" || key === "C") {
     jumpToTrackInCurrentMood(0);
   } else if (key === "z" || key === "Z") {
@@ -455,12 +467,11 @@ function keyPressed() {
   }
 }
 
-function togglePlayPause() {
-  if (!currentTrack) {
-    switchAudioToCurrentScene();
-    return;
-  }
+// right click = next mood
+function mousePressed() {
+  userStartAudio();
 
-  if (currentTrack.isPlaying()) currentTrack.pause();
-  else currentTrack.play();
+  if (mouseButton === RIGHT) {
+    setScene(currentSceneIndex + 1);
+  }
 }
