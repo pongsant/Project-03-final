@@ -6,16 +6,17 @@
 }
 
 /* Soft modern font */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap");
 
 html,
 body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  font-family: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont,
+    "Inter", sans-serif;
   background: radial-gradient(circle at top, #f7f2ff 0%, #e3efff 40%, #f0f7ff 100%);
-  color: #27212F;
+  color: #27212f;
 }
 
 /* Let the p5 canvas fill the screen behind everything */
@@ -34,132 +35,131 @@ body > canvas {
   padding: 14px 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(18, 12, 40, 0.07);
-  box-shadow: 0 18px 45px rgba(46, 30, 120, 0.22);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  z-index: 10;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  z-index: 2;
 }
 
 .overlay h1 {
   font-size: 1.3rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  margin-bottom: 4px;
   font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .overlay p {
   font-size: 0.8rem;
+  line-height: 1.4;
+  max-width: 260px;
   opacity: 0.85;
 }
 
-/* Mood legend box in the corner */
+/* Legend card */
 .legend {
   position: fixed;
   right: 24px;
   bottom: 24px;
   padding: 14px 18px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(18, 12, 40, 0.08);
-  box-shadow: 0 18px 45px rgba(46, 30, 120, 0.28);
-  pointer-events: auto;
-  z-index: 10;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
   max-width: 260px;
-  font-size: 0.78rem;
+  z-index: 2;
 }
 
 .legend h2 {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  opacity: 0.85;
+  letter-spacing: 0.13em;
   margin-bottom: 8px;
-}
-
-.legend p {
-  font-size: 0.72rem;
   opacity: 0.8;
-  margin-bottom: 8px;
 }
 
-.legend-list {
+.legend ul {
   list-style: none;
 }
 
-/* Each mood row */
 .legend-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
-  opacity: 0.75;
+  padding: 4px 0;
+  font-size: 0.8rem;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.1s ease;
-}
-
-.legend-item:last-child {
-  margin-bottom: 0;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .legend-item:hover {
   opacity: 1;
-  transform: translateX(0px);
+  transform: translateX(-2px);
 }
 
-.legend-item span:last-child {
-  transition: color 0.2s ease, font-weight 0.2s ease;
-}
-
-/* Active mood = brighter text */
-.legend-item.is-active {
+.legend-item.active {
   opacity: 1;
-}
-
-.legend-item.is-active span:last-child {
-  color: #171321;
   font-weight: 600;
 }
 
-/* Color dots that match the orb moods */
 .swatch {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  border: 1px solid rgba(18, 12, 40, 0.16);
+  box-shadow: 0 0 0 1px rgba(20, 14, 40, 0.04),
+    0 8px 14px rgba(0, 0, 0, 0.18);
 }
 
-/* Match mood colors from sketch.js */
+/* Swatch colors match moods */
 .swatch--calm {
   background: #70a4ff;
 }
-
 .swatch--happy {
   background: #ffd75a;
 }
-
 .swatch--love {
   background: #ff89b5;
 }
-
 .swatch--dream {
   background: #c8a4ff;
 }
-
 .swatch--hope {
   background: #8fffd1;
 }
-
 .swatch--nostalgia {
   background: #ffb27a;
 }
-
 .swatch--alone {
   background: #7a8bff;
 }
 
-/* Small screen tweaks */
+/* Enter world button */
+.enter-world {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  background: #ff89b5;
+  color: #2a0e33;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.enter-world:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
+  background: #ff94be;
+}
+
+/* Responsive tweaks */
 @media (max-width: 640px) {
   .legend {
     max-width: 220px;
@@ -173,4 +173,29 @@ body > canvas {
   .overlay p {
     font-size: 0.7rem;
   }
+}
+/* Button to enter Unity 3D dream world */
+.enter-world {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  background: #ff89b5;
+  color: #2a0e33;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.enter-world:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.24);
+  background: #ff94be;
 }

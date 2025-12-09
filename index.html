@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MUSICOrb Visualizer</title>
+  <title>MUSIC ORB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 
@@ -11,52 +11,68 @@
   <!-- p5.sound -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
 </head>
+
 <body>
+
   <!-- Title + instructions -->
   <div class="overlay">
     <h1>MUSIC ORB</h1>
-    <p> <br />
-  
+    <p>
+    
     </p>
   </div>
 
-  <!-- Mood legend box -->
+  <!-- Mood legend card -->
   <div class="legend">
     <h2>Mood Colors</h2>
-    <p>Click a color to change the orb and music.</p>
-    <ul class="legend-list">
-      <li class="legend-item" data-index="0">
-        <span class="swatch swatch--calm"></span>
-        <span>Calm</span>
+    <ul>
+      <li class="legend-item active" data-index="0">
+        <span class="swatch swatch--calm"></span> Calm
       </li>
       <li class="legend-item" data-index="1">
-        <span class="swatch swatch--happy"></span>
-        <span>Happy</span>
+        <span class="swatch swatch--happy"></span> Happy
       </li>
       <li class="legend-item" data-index="2">
-        <span class="swatch swatch--love"></span>
-        <span>Love</span>
+        <span class="swatch swatch--love"></span> Love
       </li>
       <li class="legend-item" data-index="3">
-        <span class="swatch swatch--dream"></span>
-        <span>Dream</span>
+        <span class="swatch swatch--dream"></span> Dream
       </li>
       <li class="legend-item" data-index="4">
-        <span class="swatch swatch--hope"></span>
-        <span>Hope</span>
+        <span class="swatch swatch--hope"></span> Hope
       </li>
       <li class="legend-item" data-index="5">
-        <span class="swatch swatch--nostalgia"></span>
-        <span>Nostalgia</span>
+        <span class="swatch swatch--nostalgia"></span> Nostalgia
       </li>
       <li class="legend-item" data-index="6">
-        <span class="swatch swatch--alone"></span>
-        <span>Alone</span>
+        <span class="swatch swatch--alone"></span> Alone
       </li>
     </ul>
   </div>
 
-  <!-- p5 sketch -->
+  <!-- Button: opens Unity with the selected mood -->
+  <button class="enter-world" onclick="openUnityWorld()">
+    Enter 3D Dream World
+  </button>
+
+  <!-- Your p5.js sketch -->
   <script src="sketch.js"></script>
+
+  <!-- Unity link script -->
+  <script>
+    function openUnityWorld() {
+      // Your sketch already controls these:
+      // scenes[currentSceneIndex].name = "Calm", "Love", etc.
+      let mood = "calm";
+      if (typeof scenes !== "undefined" &&
+          typeof currentSceneIndex !== "undefined") {
+        mood = scenes[currentSceneIndex].name.toLowerCase();
+      }
+
+      // Open Unity WebGL with ?mood=love (or calm, dream, etc.)
+      window.open(`UnityBuild/index.html?mood=${mood}`, "_blank");
+    }
+  </script>
+
 </body>
 </html>
