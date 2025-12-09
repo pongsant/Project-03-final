@@ -1,65 +1,94 @@
-// MUSIC ORB — single-user version with mood → Unity link
+// MUSIC ORB — single user + Unity sync
+// -----------------------------------
 
 let moods = [
   {
     id: "calm",
-    label: "Calm",
-    color: [112, 164, 255],
-    file: "calm.mp3",
+    name: "Calm",
+    orbColor: "#5F97FF",      // deeper blue
+    topColor: "#BFD8FF",
+    bottomColor: "#E8F1FF",
+    file: "calm.mp3"
   },
   {
     id: "happy",
-    label: "Happy",
-    color: [255, 215, 90],
-    file: "happy.mp3",
+    name: "Happy",
+    orbColor: "#FFC837",       // stronger yellow-gold
+    topColor: "#FFE7A1",
+    bottomColor: "#FFF5D9",
+    file: "happy.mp3"
   },
   {
     id: "love",
-    label: "love",
-    color: [255, 137, 181],
-    file: "love.mp3",
+    name: "Love",
+    orbColor: "#FF5F9F",      // richer rose-pink
+    topColor: "#FFB7D4",
+    bottomColor: "#FFE4EE",
+    file: "love.mp3"
   },
   {
     id: "dream",
-    label: "Dream",
-    color: [200, 164, 255],
-    file: "dream.mp3",
+    name: "Dream",
+    orbColor: "#A883FF",      // deeper lavender
+    topColor: "#D9C8FF",
+    bottomColor: "#F2EBFF",
+    file: "dream.mp3"
   },
   {
     id: "hope",
-    label: "Hope",
-    color: [143, 255, 209],
-    file: "hope.mp3",
+    name: "Hope",
+    orbColor: "#5FFFC9",      // brighter mint
+    topColor: "#C4FFEB",
+    bottomColor: "#EDFFF8",
+    file: "hope.mp3"
   },
   {
     id: "nostalgia",
-    label: "Nostalgia",
-    color: [255, 178, 122],
-    file: "nostalgia.mp3",
+    name: "Nostalgia",
+    orbColor: "#FF9550",      // warmer orange
+    topColor: "#FFD1B0",
+    bottomColor: "#FFEBDC",
+    file: "nostalgia.mp3"
   },
   {
     id: "alone",
-    label: "Alone",
-    color: [122, 139, 255],
-    file: "alone.mp3",
-  },
+    name: "Alone",
+    orbColor: "#6574FF",      // cooler, deeper blue-violet
+    topColor: "#C3C8FF",
+    bottomColor: "#EEF0FF",
+    file: "alone.mp3"
+  }
 ];
 
-let sounds = [];
-let currentMoodIndex = 0;
+
+let sounds = [];          // loaded p5.SoundFile objects
+let currentMoodIndex = 0; // which mood we’re on
 let currentSound = null;
 
 let amplitude;
-let angle = 0;
 let baseRadius;
+let angle = 0;
 
-// === p5 lifecycle ===
+// background colors (p5.Color)
+let bgTop, bgBottom, bgTopTarget, bgBottomTarget;
+
+// audio animation helpers
+let beatSmoothed = 0;
+let vibeSmoothed = 0;
+
+// audio permission state
+let audioStarted = false;
+
+// ----------------- PRELOAD -----------------
+
 function preload() {
   // load all sounds
   for (let m of moods) {
     sounds.push(loadSound(m.file));
   }
 }
+
+// ----------------- SETUP -----------------
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
@@ -71,136 +100,245 @@ function setup() {
 
   baseRadius = min(windowWidth, windowHeight) * 0.18;
 
+  // initial background
+  const m = moods[currentMoodIndex];
+  bgTop = color(m.topColor);
+  bgBottom = color(m.bottomColor);
+  bgTopTarget = bgTop;
+  bgBottomTarget = bgBottom;
+
   setupLegendClicks();
-  switchMood(0); // start with Calm
+  applyMood(0); // set initial mood visuals + Unity sync (no sound yet)
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
+  resizeCanvas(windowWidth, windowHeight, WEBGL);
   baseRadius = min(windowWidth, windowHeight) * 0.18;
 }
 
+// ----------------- DRAW -----------------
+
 function draw() {
-  clear(); // let CSS background show
+  // smooth gradient background
+  bgTop = lerpColor(bgTop, bgTopTarget, 0.03);
+  bgBottom = lerpColor(bgBottom, bgBottomTarget, 0.03);
+  drawGradientBackground(bgTop, bgBottom);
 
-  let mood = moods[currentMoodIndex];
-  let col = mood.color;
-
-  // soft background haze behind orb
-  push();
-  translate(0, 0, -200);
-  for (let i = 0; i < 3; i++) {
-    let alpha = 40 - i * 10;
-    fill(col[0], col[1], col[2], alpha);
-    sphere(baseRadius * (1.7 + i * 0.2), 24, 16);
+  // audio-based animation
+  let level = 0;
+  if (currentSound && currentSound.isPlaying()) {
+    level = amplitude.getLevel();
   }
-  pop();
 
-  // audio-reactive orb
-  let level = amplitude.getLevel();
-  let bump = map(level, 0, 0.25, 0, baseRadius * 0.5, true);
+  // vibe mostly from volume
+  let rawVibe = constrain(map(level, 0, 0.35, 0, 1), 0, 1);
+  vibeSmoothed = lerp(vibeSmoothed, rawVibe, 0.12);
 
-  rotateY(angle * 0.7);
-  rotateX(angle * 0.3);
-  angle += 0.01 + level * 0.06;
+  // smaller “beat” pulse
+  let rawBeat = constrain(map(level, 0, 0.5, 0, 1), 0, 1);
+  beatSmoothed = lerp(beatSmoothed, rawBeat, 0.2);
 
-  ambientLight(80);
-  directionalLight(col[0], col[1], col[2], -1, -0.3, -0.5);
+  drawOrb(beatSmoothed, vibeSmoothed);
+}
 
-  let orbRadius = baseRadius + bump;
+// ----------------- BACKGROUND + ORB -----------------
 
-  // outer soft shell
+function drawGradientBackground(topCol, bottomCol) {
+  resetMatrix();
+  ortho();
   push();
-  fill(col[0], col[1], col[2], 180);
-  specularMaterial(col[0], col[1], col[2], 200);
-  shininess(60);
-  sphere(orbRadius, 64, 48);
+  noStroke();
+
+  beginShape();
+  fill(topCol);
+  vertex(-width / 2, -height / 2, -1);
+  vertex(width / 2, -height / 2, -1);
+  fill(bottomCol);
+  vertex(width / 2, height / 2, -1);
+  vertex(-width / 2, height / 2, -1);
+  endShape(CLOSE);
+
+  pop();
+  resetMatrix();
+}
+
+function drawOrb(beat, vibe) {
+  const mood = moods[currentMoodIndex];
+  const orbColor = color(mood.orbColor);
+  const lightColor = color(mood.topColor);
+
+  // base radius
+  let r = baseRadius;
+  r += beat * baseRadius * 0.4;
+  r += sin(frameCount * 0.01) * baseRadius * 0.05;
+
+  angle += 0.01 + vibe * 0.03;
+
+  // lighting
+  ambientLight(40);
+  directionalLight(
+    red(lightColor),
+    green(lightColor),
+    blue(lightColor),
+    -0.3,
+    -0.4,
+    -0.6
+  );
+
+  rotateY(angle * 0.8);
+  rotateX(angle * 0.35);
+
+  // outer shell
+  push();
+  const orbCol = lerpColor(orbColor, color(255), 0.15 + vibe * 0.15);
+  ambientMaterial(orbCol);
+  shininess(80);
+  sphere(r, 72, 64);
   pop();
 
   // inner core
   push();
-  fill(255, 255, 255, 220);
-  sphere(orbRadius * 0.55, 32, 24);
+  let innerR = r * (0.55 + vibe * 0.05);
+  rotateY(-angle * 1.2);
+  rotateX(angle * 0.7);
+  ambientMaterial(255, 255, 255, 230);
+  sphere(innerR, 40, 32);
   pop();
 
-  // little floating rings
-  let ringCount = 5;
-  for (let i = 0; i < ringCount; i++) {
-    let t = angle * (0.8 + i * 0.15);
-    let r = orbRadius * (1.05 + i * 0.06);
-    let y = sin(t * 1.2 + i) * orbRadius * 0.2;
+  // small floating “petals”
+  const dotCount = 32;
+  for (let i = 0; i < dotCount; i++) {
+    const t = (i / dotCount) * TWO_PI;
+    const band = (i % 3) / 3;
+    const rr = r * (1.05 + band * 0.12 + vibe * 0.05);
+    const wobble = sin(angle * 1.5 + i * 0.4) * r * 0.08 * (0.3 + band);
+
+    const x = cos(t + angle * (0.6 + band * 0.2)) * rr;
+    const y = sin(t * 1.2 + angle * (0.4 + band * 0.3)) * rr * 0.4;
+    const z = sin(t + angle * (0.9 + band * 0.1)) * (rr * 0.6 + wobble);
 
     push();
-    rotateY(t + i * 0.3);
-    translate(r, y, 0);
-    fill(col[0], col[1], col[2], 150 - i * 18);
-    sphere(8 + i * 1.5, 12, 8);
+    translate(x, y, z);
+    const dotAlpha = 140 + 60 * band;
+    const dotCol = lerpColor(orbColor, lightColor, 0.4 + 0.3 * band);
+    ambientMaterial(red(dotCol), green(dotCol), blue(dotCol), dotAlpha);
+    sphere(6 + band * 3, 10, 8);
     pop();
   }
 }
 
-// === Mood + audio control ===
+// ----------------- MOOD / AUDIO LOGIC -----------------
 
-function setupLegendClicks() {
-  const items = document.querySelectorAll(".legend-item");
-  items.forEach((item) => {
-    item.addEventListener("click", () => {
-      const idx = parseInt(item.getAttribute("data-index"));
-      switchMood(idx);
-    });
-  });
-}
+function applyMood(index) {
+  currentMoodIndex = (index + moods.length) % moods.length;
+  const mood = moods[currentMoodIndex];
 
-function switchMood(index) {
-  if (index < 0 || index >= moods.length) return;
+  // background targets
+  bgTopTarget = color(mood.topColor);
+  bgBottomTarget = color(mood.bottomColor);
 
-  // stop old sound
+  // update legend highlight
+  updateLegendActive();
+
+  // stop previous sound
   if (currentSound && currentSound.isPlaying()) {
     currentSound.stop();
   }
 
-  currentMoodIndex = index;
-  const mood = moods[currentMoodIndex];
+  // set new sound
   currentSound = sounds[currentMoodIndex];
 
-  // update legend active state
+  // start if user already allowed audio
+  if (audioStarted && currentSound && !currentSound.isPlaying()) {
+    currentSound.loop();
+    currentSound.setVolume(0.85);
+  }
+
+  // tell Unity the new mood
+  syncMoodToUnity(mood.name); // "Calm", "Happy", etc.
+}
+
+function nextMood() {
+  applyMood(currentMoodIndex + 1);
+}
+
+function userStartAudioIfNeeded() {
+  if (!audioStarted) {
+    audioStarted = true;
+    const ctx = getAudioContext();
+    if (ctx.state !== "running") {
+      ctx.resume();
+    }
+    // start current track
+    if (currentSound && !currentSound.isPlaying()) {
+      currentSound.loop();
+      currentSound.setVolume(0.85);
+    }
+  }
+}
+
+// ----------------- HTML LEGEND CLICKS -----------------
+
+function setupLegendClicks() {
   const items = document.querySelectorAll(".legend-item");
+  if (!items) return;
+
+  items.forEach((item) => {
+    const idx = parseInt(item.dataset.index, 10);
+    item.addEventListener("click", () => {
+      userStartAudioIfNeeded();
+      applyMood(idx);
+    });
+  });
+}
+
+function updateLegendActive() {
+  const items = document.querySelectorAll(".legend-item");
+  if (!items) return;
+
   items.forEach((item) => item.classList.remove("active"));
+
   const active = document.querySelector(
     `.legend-item[data-index="${currentMoodIndex}"]`
   );
   if (active) active.classList.add("active");
-
-  // start audio (user gesture)
-  userStartAudio();
-  if (currentSound && !currentSound.isPlaying()) {
-    currentSound.loop();
-    currentSound.setVolume(0.8);
-  }
 }
 
-// === open Unity world with current mood ===
+// ----------------- INPUT: MOUSE + KEYS -----------------
 
-function openUnityWorld() {
-  const moodId = moods[currentMoodIndex].id; // e.g. "love"
-  // UnityBuild is the folder name you used when building WebGL
-  const url = `UnityBuild/index.html?mood=${encodeURIComponent(moodId)}`;
-  window.open(url, "_blank"); // new tab; use window.location.href if you want same tab
+function mousePressed() {
+  userStartAudioIfNeeded();
+
+  // right click = next mood
+  if (mouseButton === RIGHT) {
+    nextMood();
+    return false;
+  }
+  // left click can just be "start audio" and keep current mood
 }
 
-// ---------- UNITY BRIDGE ----------
-// Opens the Unity WebGL build with the current mood as a URL parameter.
-// Example: UnityBuild/index.html?mood=love
-function openUnityWorld() {
-  // use current scene's name as mood id (Calm, Happy, Love, etc.)
-  let moodName = "calm";
-  if (scenes && scenes[currentSceneIndex]) {
-    moodName = scenes[currentSceneIndex].name.toLowerCase();
-  }
+function keyPressed() {
+  userStartAudioIfNeeded();
 
-  // UnityBuild is the folder where you build your WebGL scene
-  const url = `UnityBuild/index.html?mood=${encodeURIComponent(moodName)}`;
+  // 1–7 go directly to moods
+  if (key === "1") applyMood(0);
+  else if (key === "2") applyMood(1);
+  else if (key === "3") applyMood(2);
+  else if (key === "4") applyMood(3);
+  else if (key === "5") applyMood(4);
+  else if (key === "6") applyMood(5);
+  else if (key === "7") applyMood(6);
+}
 
-  // open in new tab so your music/orb page stays open
-  window.open(url, "_blank");
+// ----------------- UNITY SYNC -----------------
+
+// Send current mood name to the Unity iframe in real time
+function syncMoodToUnity(moodName) {
+  const frame = document.getElementById("unity-frame");
+  if (!frame || !frame.contentWindow) return;
+
+  frame.contentWindow.postMessage(
+    { type: "setMood", mood: moodName },
+    "*"
+  );
 }

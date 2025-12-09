@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>MUSIC ORB</title>
+  <title>GOD</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 
@@ -16,7 +16,7 @@
 
   <!-- Title + instructions -->
   <div class="overlay">
-    <h1>MUSIC ORB</h1>
+    <h1>GOD</h1>
     <p>
     
     </p>
@@ -73,6 +73,16 @@
       window.open(`UnityBuild/index.html?mood=${mood}`, "_blank");
     }
   </script>
+
+  <!-- Unity WebGL running inside the page -->
+<div class="unity-wrapper">
+  <iframe
+    id="unity-frame"
+    src="UnityBuild/index.html"
+    allow="fullscreen"
+  ></iframe>
+</div>
+
 
 </body>
 </html>
