@@ -1,5 +1,3 @@
-// MUSIC ORB — single user + Unity sync
-// -----------------------------------
 
 let moods = [
   {

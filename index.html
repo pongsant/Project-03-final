@@ -61,15 +61,14 @@
   <!-- Unity link script -->
   <script>
     function openUnityWorld() {
-      // Your sketch already controls these:
-      // scenes[currentSceneIndex].name = "Calm", "Love", etc.
+      
       let mood = "calm";
       if (typeof scenes !== "undefined" &&
           typeof currentSceneIndex !== "undefined") {
         mood = scenes[currentSceneIndex].name.toLowerCase();
       }
 
-      // Open Unity WebGL with ?mood=love (or calm, dream, etc.)
+      // Open Unity WebGL with mood
       window.open(`UnityBuild/index.html?mood=${mood}`, "_blank");
     }
   </script>
